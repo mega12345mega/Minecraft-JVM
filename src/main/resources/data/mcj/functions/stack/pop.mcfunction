@@ -1,0 +1,1 @@
+data remove storage mcj:data stack[-1]

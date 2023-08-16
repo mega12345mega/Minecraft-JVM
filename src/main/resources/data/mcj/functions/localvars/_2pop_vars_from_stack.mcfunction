@@ -1,0 +1,1 @@
+$data modify storage mcj:data localvars.v$(pop_vars_from_stack_amount) set from storage mcj:data stack[-1]

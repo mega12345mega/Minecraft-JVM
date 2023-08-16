@@ -1,0 +1,1 @@
+$say $(print_target): $(print_value)
