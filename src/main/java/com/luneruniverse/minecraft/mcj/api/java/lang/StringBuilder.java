@@ -20,7 +20,6 @@ public class StringBuilder {
 	/*@MCJNativeImpl({"""
 			function $(~METHOD_PATH~)/pointer_handler with storage mcj:data localvars.v0
 			data modify storage mcj:data stack append from storage mcj:data localvars.v0
-			function mcj:stack/return
 			""", """
 			# pointer_handler
 			$data modify storage mcj:data concat_a set from storage mcj:data heap.v$(value).value.value
@@ -35,7 +34,6 @@ public class StringBuilder {
 	@MCJNativeImpl({"""
 			function $(~METHOD_PATH~)/pointer_handler with storage mcj:data localvars.v0
 			data modify storage mcj:data stack append from storage mcj:data localvars.v0
-			function mcj:stack/return
 			""", """
 			# pointer_handler
 			$data modify storage mcj:data concat.a set from storage mcj:data heap.v$(value).value.value

@@ -6,7 +6,7 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
 /**
- * Change the package and class name of the compiled class (used internally)<br>
+ * Change the namespace, package, and class name of the compiled class (used internally)<br>
  * <strong>Warning:</strong> this does NOT apply this change to anything referring to the class
  */
 @Target(ElementType.TYPE)
@@ -14,7 +14,8 @@ import java.lang.annotation.Target;
 @MCJIgnore
 public @interface MCJImplFor {
 	/**
-	 * @return The new class name, in the format <code>path/to/Class$Nested</code>
+	 * The namespace argument is optional (and usually shouldn't be used)<br>
+	 * @return The new class name, in the format <code>[&lt;namespace&gt;:]path/to/Class$Nested</code>
 	 */
 	public String value();
 }

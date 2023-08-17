@@ -4,13 +4,16 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.WeakHashMap;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 
 import org.objectweb.asm.AnnotationVisitor;
+import org.objectweb.asm.Handle;
 import org.objectweb.asm.Label;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
@@ -20,8 +23,20 @@ import com.luneruniverse.minecraft.mcj.api.MCJNativeImpl;
 
 public class MCJMethodVisitor extends MethodVisitor {
 	
+	private static final int NULLPTR = 0; // Matches value in mcj:heap/_newarray
+	
+	private static final String IFCMP0_TEMPLATE = """
+			execute store result score cmp_a mcj_data run data get storage mcj:data stack[-1].value
+			function mcj:stack/pop
+			data modify storage mcj:data intstack append value {}
+			execute $(condition) score cmp_a mcj_data matches $(range) run data modify storage mcj:data intstack[-1].matches set value 1b
+			execute if data storage mcj:data intstack[-1].matches run function $(target)
+			execute if data storage mcj:data intstack[-1].matches run return run data remove storage mcj:data intstack[-1]
+			#execute if data storage mcj:data intstack[-1].matches run return run function mcj:intstack/pop
+			function mcj:intstack/pop""";
+	
 	private static final String IF_ICMP_TEMPLATE = """
-			function mcj:stack/lcmp
+			function mcj:stack/setup_icmp
 			function mcj:intstack/pop_var_from_stack
 			execute if data storage mcj:data intstack[-1].$(comparison) run function $(target)
 			execute if data storage mcj:data intstack[-1].$(comparison) run return run data remove storage mcj:data intstack[-1]
@@ -29,6 +44,25 @@ public class MCJMethodVisitor extends MethodVisitor {
 			function mcj:intstack/pop""";
 	
 	private class MCJLabel {
+		private class MCJLabelPosition {
+			private int index;
+			private MCJLabelPosition(int index) {
+				this.index = index;
+			}
+			public void println(String line) {
+				if (hasGoto)
+					throw new MCJException("Attempted to println on a label with a goto: " + functionPath + "l" + index);
+				builder.insert(index, line + '\n');
+				index += line.length() + 1;
+			}
+			public void printGoto(String line) {
+				if (!hasGoto)
+					throw new MCJException("Attempted to printGoto on a label without a goto: " + functionPath + "l" + index);
+				builder.insert(index, line + '\n');
+				index += line.length() + 1;
+			}
+		}
+		
 		private final int index;
 		private final Label label;
 		private final StringBuilder builder;
@@ -55,6 +89,9 @@ public class MCJMethodVisitor extends MethodVisitor {
 			builder.append(line);
 			builder.append('\n');
 		}
+		public MCJLabelPosition printHereLater() {
+			return new MCJLabelPosition(builder.length());
+		}
 		
 		public void markGoto() {
 			hasGoto = true;
@@ -63,10 +100,14 @@ public class MCJMethodVisitor extends MethodVisitor {
 			canCombine = false;
 		}
 		
+		public String getFunctionPath() {
+			return functionPath + "l" + index;
+		}
+		
 		public boolean combine(MCJLabel successor) {
 			if (!successor.canCombine) {
 				if (!hasGoto)
-					builder.append("function " + functionPath + "l" + successor.index);
+					builder.append("function " + successor.getFunctionPath());
 				return false;
 			}
 			builder.append(successor.builder);
@@ -160,6 +201,18 @@ public class MCJMethodVisitor extends MethodVisitor {
 		}
 		labelListeners.computeIfAbsent(label, key -> new ArrayList<>()).add(listener);
 	}
+	private void registerLabelsListener(List<Label> labels, Consumer<List<MCJLabel>> listener) {
+		MCJLabel[] output = new MCJLabel[labels.size()];
+		AtomicInteger numFound = new AtomicInteger(0);
+		for (int i = 0; i < labels.size(); i++) {
+			final int finalI = i;
+			registerLabelListener(labels.get(i), label -> {
+				output[finalI] = label;
+				if (numFound.incrementAndGet() == labels.size())
+					listener.accept(Arrays.asList(output));
+			});
+		}
+	}
 	
 	@Override
 	public void visitLabel(Label label) {
@@ -174,29 +227,19 @@ public class MCJMethodVisitor extends MethodVisitor {
 	
 	@Override
 	public void visitFieldInsn(int opcode, String owner, String name, String descriptor) {
-		switch (opcode) { // TODO
+		switch (opcode) { // TODO GETSTATIC, PUTSTATIC, field resolution doesn't handle superclasses
+//			case Opcodes.GETSTATIC -> ;
+//			case Opcodes.PUTSTATIC -> ;
 			case Opcodes.GETFIELD -> curLabel.println("function mcj:heap/getfield {name:\"" + name + "\"}");
 			case Opcodes.PUTFIELD -> curLabel.println("function mcj:heap/putfield {name:\"" + name + "\"}");
+			default -> throw new MCJException("Unsupported opcode: " + opcode);
 		}
 	}
 	
 	@Override
-	public void visitJumpInsn(int opcode, Label label) {
-		if (opcode == Opcodes.GOTO)
-			curLabel.markGoto();
-		
-		MCJLabel curLabel = this.curLabel;
-		registerLabelListener(label, targetLabel -> {
-			targetLabel.markJumpedTo();
-			switch (opcode) {
-				case Opcodes.GOTO -> {
-					curLabel.printGoto("function " + functionPath + "l" + targetLabel.index);
-				}
-				case Opcodes.IF_ICMPLT -> {
-					curLabel.println(IF_ICMP_TEMPLATE.replace("$(comparison)", "lt").replace("$(target)", functionPath + "l" + targetLabel.index));
-				}
-			}
-		});
+	public void visitFrame(int type, int numLocal, Object[] local, int numStack, Object[] stack) {
+		// TODO Auto-generated method stub
+		super.visitFrame(type, numLocal, local, numStack, stack);
 	}
 	
 	@Override
@@ -207,8 +250,18 @@ public class MCJMethodVisitor extends MethodVisitor {
 	
 	@Override
 	public void visitInsn(int opcode) {
+		// TODO DUP_X2, DUP2, DUP2_X1, DUP2_X2
+		// TODO I2F, L2I, L2F, L2D, F2I, F2L, D2I, D2L, D2F, I2B, I2C, I2S
+		// TODO FCMPL, FCMPG, DCMPL, DCMPG
+		/*
+		 Math:
+   *     IADD, LADD, FADD, DADD, ISUB, LSUB, FSUB, DSUB, IMUL, LMUL, FMUL, DMUL, IDIV, LDIV,
+   *     FDIV, DDIV, IREM, LREM, FREM, DREM, INEG, LNEG, FNEG, DNEG, ISHL, LSHL, ISHR, LSHR, IUSHR,
+   *     LUSHR, IAND, LAND, IOR, LOR, IXOR, LXOR,
+		 */
 		switch (opcode) {
-			case Opcodes.DUP -> curLabel.println("function mcj:stack/duplicate");
+			case Opcodes.NOP -> {}
+			case Opcodes.ACONST_NULL -> curLabel.println("function mcj:stack/push_const {value:\"" + NULLPTR + "\"}");
 			case Opcodes.ICONST_M1 -> curLabel.println("function mcj:stack/push_const {value:\"-1\"}");
 			case Opcodes.ICONST_0 -> curLabel.println("function mcj:stack/push_const {value:\"0\"}");
 			case Opcodes.ICONST_1 -> curLabel.println("function mcj:stack/push_const {value:\"1\"}");
@@ -216,20 +269,214 @@ public class MCJMethodVisitor extends MethodVisitor {
 			case Opcodes.ICONST_3 -> curLabel.println("function mcj:stack/push_const {value:\"3\"}");
 			case Opcodes.ICONST_4 -> curLabel.println("function mcj:stack/push_const {value:\"4\"}");
 			case Opcodes.ICONST_5 -> curLabel.println("function mcj:stack/push_const {value:\"5\"}");
-			case Opcodes.RETURN, Opcodes.ARETURN -> curLabel.println("return");
+			case Opcodes.LCONST_0 -> curLabel.println("function mcj:stack/push_const {value:\"0\"}");
+			case Opcodes.LCONST_1 -> curLabel.println("function mcj:stack/push_const {value:\"1\"}");
+			case Opcodes.FCONST_0 -> curLabel.println("function mcj:stack/push_const {value:\"0\"}");
+			case Opcodes.FCONST_1 -> curLabel.println("function mcj:stack/push_const {value:\"1\"}");
+			case Opcodes.FCONST_2 -> curLabel.println("function mcj:stack/push_const {value:\"2\"}");
+			case Opcodes.DCONST_0 -> curLabel.println("function mcj:stack/push_const {value:\"0\"}");
+			case Opcodes.DCONST_1 -> curLabel.println("function mcj:stack/push_const {value:\"1\"}");
+			case Opcodes.IALOAD -> curLabel.println("function mcj:heap/aload");
+			case Opcodes.LALOAD -> curLabel.println("function mcj:heap/aload");
+			case Opcodes.FALOAD -> curLabel.println("function mcj:heap/aload");
+			case Opcodes.DALOAD -> curLabel.println("function mcj:heap/aload");
+			case Opcodes.AALOAD -> curLabel.println("function mcj:heap/aload");
+			case Opcodes.BALOAD -> curLabel.println("function mcj:heap/aload");
+			case Opcodes.CALOAD -> curLabel.println("function mcj:heap/aload");
+			case Opcodes.SALOAD -> curLabel.println("function mcj:heap/aload");
+			case Opcodes.IASTORE -> curLabel.println("function mcj:heap/astore");
+			case Opcodes.LASTORE -> curLabel.println("function mcj:heap/astore");
+			case Opcodes.FASTORE -> curLabel.println("function mcj:heap/astore");
+			case Opcodes.DASTORE -> curLabel.println("function mcj:heap/astore");
+			case Opcodes.AASTORE -> curLabel.println("function mcj:heap/astore");
+			case Opcodes.BASTORE -> curLabel.println("function mcj:heap/astore");
+			case Opcodes.CASTORE -> curLabel.println("function mcj:heap/astore");
+			case Opcodes.SASTORE -> curLabel.println("function mcj:heap/astore");
+			case Opcodes.POP -> curLabel.println("function mcj:stack/pop");
+			case Opcodes.POP2 -> curLabel.println("function mcj:stack/pop\nfunction mcj:stack/pop");
+			case Opcodes.DUP -> curLabel.println("function mcj:stack/dup");
+			case Opcodes.DUP_X1 -> curLabel.println("function mcj:stack/dup_x1");
+//			case Opcodes.DUP_X2 -> ;
+//			case Opcodes.DUP2 -> ;
+//			case Opcodes.DUP2_X1 -> ;
+//			case Opcodes.DUP2_X2 -> ;
+			case Opcodes.SWAP -> curLabel.println("function mcj:stack/swap");
+			// Math
+			case Opcodes.I2L -> {}
+//			case Opcodes.I2F -> ;
+			case Opcodes.I2D -> {}
+//			case Opcodes.L2I -> ;
+//			case Opcodes.L2F -> ;
+//			case Opcodes.L2D -> ;
+//			case Opcodes.F2I -> ;
+//			case Opcodes.F2L -> ;
+			case Opcodes.F2D -> {}
+//			case Opcodes.D2I -> ;
+//			case Opcodes.D2L -> ;
+//			case Opcodes.D2F -> ;
+//			case Opcodes.I2B -> ;
+//			case Opcodes.I2C -> ;
+//			case Opcodes.I2S -> ;
+			case Opcodes.LCMP -> curLabel.println("function mcj:stack/lcmp");
+//			case Opcodes.FCMPL -> ;
+//			case Opcodes.FCMPG -> ;
+//			case Opcodes.DCMPL -> ;
+//			case Opcodes.DCMPG -> ;
+			case Opcodes.IRETURN -> curLabel.println("return");
+			case Opcodes.LRETURN -> curLabel.println("return");
+			case Opcodes.FRETURN -> curLabel.println("return");
+			case Opcodes.DRETURN -> curLabel.println("return");
+			case Opcodes.ARETURN -> curLabel.println("return");
+			case Opcodes.RETURN -> curLabel.println("return");
+			case Opcodes.ARRAYLENGTH -> curLabel.println("function mcj:heap/arraylength");
+			case Opcodes.ATHROW -> throw new MCJException("MCJ cannot compile exceptions! Remove all 'throw(s)'s and 'try's");
+			case Opcodes.MONITORENTER -> {} // Ignore; it is not currently possible to start another thread anyway
+			case Opcodes.MONITOREXIT -> {} // Ignore; it is not currently possible to start another thread anyway
+			default -> throw new MCJException("Unsupported opcode: " + opcode);
 		}
 	}
 	
 	@Override
-	public void visitLdcInsn(Object value) {
-		if (value instanceof String str) {
+	public void visitIntInsn(int opcode, int operand) {
+		switch (opcode) { // TODO T_FLOAT, T_DOUBLE
+			case Opcodes.BIPUSH -> curLabel.println("function mcj:stack/push_const {value:\"" + operand + "\"}");
+			case Opcodes.SIPUSH -> curLabel.println("function mcj:stack/push_const {value:\"" + operand + "\"}");
+			case Opcodes.NEWARRAY -> {switch (operand) {
+				case Opcodes.T_BOOLEAN -> curLabel.println("function mcj:heap/newarray");
+				case Opcodes.T_CHAR -> curLabel.println("function mcj:heap/newarray");
+//				case Opcodes.T_FLOAT -> ;
+//				case Opcodes.T_DOUBLE -> ;
+				case Opcodes.T_BYTE -> curLabel.println("function mcj:heap/newarray");
+				case Opcodes.T_SHORT -> curLabel.println("function mcj:heap/newarray");
+				case Opcodes.T_INT -> curLabel.println("function mcj:heap/newarray");
+				case Opcodes.T_LONG -> curLabel.println("function mcj:heap/newarray");
+				default -> throw new MCJException("Unsupported array type: " + operand);
+			};}
+			default -> throw new MCJException("Unsupported opcode: " + opcode);
+		}
+	}
+	
+	@Override
+	public void visitInvokeDynamicInsn(String name, String descriptor, Handle bootstrapMethodHandle,
+			Object... bootstrapMethodArguments) {
+		// TODO
+		throw new MCJException("Unsupported opcode: " + Opcodes.INVOKEDYNAMIC);
+	}
+	
+	@Override
+	public void visitJumpInsn(int opcode, Label label) {
+		if (opcode == Opcodes.GOTO)
+			curLabel.markGoto();
+		
+		MCJLabel.MCJLabelPosition pos = curLabel.printHereLater();
+		registerLabelListener(label, targetLabel -> {
+			targetLabel.markJumpedTo();
+			switch (opcode) {
+				case Opcodes.IFEQ -> pos.println(IFCMP0_TEMPLATE.replace("$(condition)", "if")
+						.replace("$(range)", "0").replace("$(target)", targetLabel.getFunctionPath()));
+				case Opcodes.IFNE -> pos.println(IFCMP0_TEMPLATE.replace("$(condition)", "unless")
+						.replace("$(range)", "0").replace("$(target)", targetLabel.getFunctionPath()));
+				case Opcodes.IFLT -> pos.println(IFCMP0_TEMPLATE.replace("$(condition)", "if")
+						.replace("$(range)", "..-1").replace("$(target)", targetLabel.getFunctionPath()));
+				case Opcodes.IFGE -> pos.println(IFCMP0_TEMPLATE.replace("$(condition)", "if")
+						.replace("$(range)", "0..").replace("$(target)", targetLabel.getFunctionPath()));
+				case Opcodes.IFGT -> pos.println(IFCMP0_TEMPLATE.replace("$(condition)", "if")
+						.replace("$(range)", "1..").replace("$(target)", targetLabel.getFunctionPath()));
+				case Opcodes.IFLE -> pos.println(IFCMP0_TEMPLATE.replace("$(condition)", "if")
+						.replace("$(range)", "..0").replace("$(target)", targetLabel.getFunctionPath()));
+				case Opcodes.IF_ICMPEQ -> pos.println(IF_ICMP_TEMPLATE.replace("$(comparison)", "eq")
+						.replace("$(target)", targetLabel.getFunctionPath()));
+				case Opcodes.IF_ICMPNE -> pos.println(IF_ICMP_TEMPLATE.replace("$(comparison)", "ne")
+						.replace("$(target)", targetLabel.getFunctionPath()));
+				case Opcodes.IF_ICMPLT -> pos.println(IF_ICMP_TEMPLATE.replace("$(comparison)", "lt")
+						.replace("$(target)", targetLabel.getFunctionPath()));
+				case Opcodes.IF_ICMPGE -> pos.println(IF_ICMP_TEMPLATE.replace("$(comparison)", "ge")
+						.replace("$(target)", targetLabel.getFunctionPath()));
+				case Opcodes.IF_ICMPGT -> pos.println(IF_ICMP_TEMPLATE.replace("$(comparison)", "gt")
+						.replace("$(target)", targetLabel.getFunctionPath()));
+				case Opcodes.IF_ICMPLE -> pos.println(IF_ICMP_TEMPLATE.replace("$(comparison)", "le")
+						.replace("$(target)", targetLabel.getFunctionPath()));
+				case Opcodes.IF_ACMPEQ -> pos.println(IF_ICMP_TEMPLATE.replace("$(comparison)", "eq")
+						.replace("$(target)", targetLabel.getFunctionPath()));
+				case Opcodes.IF_ACMPNE -> pos.println(IF_ICMP_TEMPLATE.replace("$(comparison)", "ne")
+						.replace("$(target)", targetLabel.getFunctionPath()));
+				case Opcodes.GOTO -> pos.printGoto("function " + targetLabel.getFunctionPath());
+				case Opcodes.JSR -> throw new MCJException("Unsupported deprecated opcode: " + opcode);
+				case Opcodes.IFNULL -> pos.println(IFCMP0_TEMPLATE.replace("$(condition)", "if")
+						.replace("$(range)", "0").replace("$(target)", targetLabel.getFunctionPath()));
+				case Opcodes.IFNONNULL -> pos.println(IFCMP0_TEMPLATE.replace("$(condition)", "unless")
+						.replace("$(range)", "0").replace("$(target)", targetLabel.getFunctionPath()));
+				default -> throw new MCJException("Unsupported opcode: " + opcode);
+			}
+		});
+	}
+	
+	@Override
+	public void visitLdcInsn(Object value) { // TODO Float, Double
+		if (value instanceof Integer num) {
+			curLabel.println("function mcj:stack/push_const {value:\"" + num + "\"}");
+		}/* else if (value instanceof Float num) {
+			
+		}*/ else if (value instanceof Long num) {
+			curLabel.println("function mcj:stack/push_const {value:\"" + num + "l\"}"); // TODO longs take up two localvars?
+		}/* else if (value instanceof Double num) {
+			
+		}*/ else if (value instanceof String str) {
 			curLabel.println("function mcj:stack/push_const {value:\"\\\"" + str.replace("\\", "\\\\\\\\").replace("\"", "\\\\\\\"") + "\\\"\"}");
+		} else {
+			throw new MCJException("Unsupported constant: " + value.getClass().getName() + ": " + value);
 		}
 	}
 	
 	@Override
 	public void visitLineNumber(int line, Label start) {
 		curLabel.println("# --- Line " + line + " ---");
+	}
+	
+	@Override
+	public void visitLocalVariable(String name, String descriptor, String signature, Label start, Label end, int index) {
+		// Ignore
+	}
+	
+	@Override
+	public void visitLookupSwitchInsn(Label dflt, int[] keys, Label[] labels) {
+		curLabel.markGoto();
+		
+		MCJLabel.MCJLabelPosition pos = curLabel.printHereLater();
+		List<Label> allLabels = new ArrayList<>(1 + labels.length);
+		allLabels.add(dflt);
+		for (Label label : labels)
+			allLabels.add(label);
+		
+		registerLabelsListener(allLabels, mcjLabels -> {
+			StringBuilder labelFunctionList = new StringBuilder("data modify storage mcj:data switch_label set value {");
+			
+			MCJLabel mcjDflt = mcjLabels.get(0);
+			mcjDflt.markJumpedTo();
+			labelFunctionList.append("\"default\":\"");
+			labelFunctionList.append(mcjDflt.getFunctionPath());
+			labelFunctionList.append("\",");
+			
+			for (int i = 1; i < mcjLabels.size(); i++) {
+				MCJLabel label = mcjLabels.get(i);
+				label.markJumpedTo();
+				
+				labelFunctionList.append("\"f");
+				labelFunctionList.append(keys[i - 1]);
+				labelFunctionList.append("\":\"");
+				labelFunctionList.append(label.getFunctionPath());
+				labelFunctionList.append("\",");
+			}
+			
+			labelFunctionList.setCharAt(labelFunctionList.length() - 1, '}');
+			pos.println(labelFunctionList.toString());
+			pos.println("function mcj:stack/lookupswitch with storage mcj:data stack[-1]");
+		});
+	}
+	
+	@Override
+	public void visitMaxs(int maxStack, int maxLocals) {
+		// Ignore
 	}
 	
 	@Override
@@ -274,34 +521,92 @@ public class MCJMethodVisitor extends MethodVisitor {
 		
 		boolean hasReturn = descriptor.charAt(descriptor.length() - 1) != 'V';
 		
-		switch (opcode) {
+		switch (opcode) { // TODO unordered
 			case Opcodes.INVOKESTATIC -> curLabel.println("function mcj:stack/invokestatic {method:\"" + pathStr + "\",num_args:\"" + numArgs + "\",has_return:\"" + hasReturn + "\"}");
-			case Opcodes.INVOKESPECIAL, Opcodes.INVOKEVIRTUAL -> {
+			case Opcodes.INVOKEVIRTUAL, Opcodes.INVOKESPECIAL, Opcodes.INVOKEINTERFACE -> {
 				if (owner.equals("java/lang/Object") && name.equals("<init>") && descriptor.equals("()V"))
 					curLabel.println("function mcj:stack/pop");
-				else // TODO
+				else // TODO method resolution doesn't handle superclasses/interfaces
 					curLabel.println("function mcj:stack/invokestatic {method:\"" + pathStr + "\",num_args:\"" + (numArgs + 1) + "\",has_return:\"" + hasReturn + "\"}");
 			}
+			default -> throw new MCJException("Unsupported opcode: " + opcode);
 		}
 	}
 	
 	@Override
+	public void visitMultiANewArrayInsn(String descriptor, int numDimensions) {
+		curLabel.println("function mcj:heap/multianewarray {numDimensions:\"" + numDimensions + "\"}");
+	}
+	
+	@Override
+	public void visitParameter(String name, int access) {
+		// Ignore
+	}
+	
+	@Override
+	public void visitTableSwitchInsn(int min, int max, Label dflt, Label... labels) {
+		curLabel.markGoto();
+		
+		MCJLabel.MCJLabelPosition pos = curLabel.printHereLater();
+		List<Label> allLabels = new ArrayList<>(1 + labels.length);
+		allLabels.add(dflt);
+		for (Label label : labels)
+			allLabels.add(label);
+		
+		registerLabelsListener(allLabels, mcjLabels -> {
+			StringBuilder labelFunctionList = new StringBuilder("data modify storage mcj:data switch_label set value [");
+			
+			for (MCJLabel label : mcjLabels) {
+				label.markJumpedTo();
+				labelFunctionList.append('"');
+				labelFunctionList.append(label.getFunctionPath());
+				labelFunctionList.append("\",");
+			}
+			labelFunctionList.setCharAt(labelFunctionList.length() - 1, ']');
+			pos.println(labelFunctionList.toString());
+			
+			pos.println("execute store result score math_a mcj_data run data get storage mcj:data stack[-1].value");
+			int shift = -min + 1;
+			if (shift > 0)
+				pos.println("scoreboard players add math_a mcj_data " + shift);
+			else if (shift < 0)
+				pos.println("scoreboard players remove math_a mcj_data " + (-shift));
+			pos.println("execute store result storage mcj:data stack[-1].value int 1 run scoreboard players get math_a mcj_data");
+			pos.println("function mcj:stack/tableswitch with storage mcj:data stack[-1]");
+		});
+	}
+	
+	@Override
 	public void visitTryCatchBlock(Label start, Label end, Label handler, String type) {
-		throw new MCJException("MCJ cannot compile exceptions! Remove all 'throws's and 'try's");
+		throw new MCJException("MCJ cannot compile exceptions! Remove all 'throw(s)'s and 'try's");
 	}
 	
 	@Override
 	public void visitTypeInsn(int opcode, String type) {
-		switch (opcode) {
+		switch (opcode) { // TODO INSTANCEOF
 			case Opcodes.NEW -> curLabel.println("function mcj:heap/malloc");
+			case Opcodes.ANEWARRAY -> curLabel.println("function mcj:heap/newarray");
+			case Opcodes.CHECKCAST -> {}
+//			case Opcodes.INSTANCEOF -> ;
+			default -> throw new MCJException("Unsupported opcode: " + opcode);
 		}
 	}
 	
 	@Override
 	public void visitVarInsn(int opcode, int varIndex) {
 		switch (opcode) {
-			case Opcodes.ILOAD, Opcodes.ALOAD -> curLabel.println("function mcj:localvars/push_var_to_stack {index:\"" + varIndex + "\"}");
-			case Opcodes.ISTORE, Opcodes.ASTORE -> curLabel.println("function mcj:localvars/pop_var_from_stack {index:\"" + varIndex + "\"}");
+			case Opcodes.ILOAD -> curLabel.println("function mcj:localvars/push_var_to_stack {index:\"" + varIndex + "\"}");
+			case Opcodes.LLOAD -> curLabel.println("function mcj:localvars/push_var_to_stack {index:\"" + varIndex + "\"}");
+			case Opcodes.FLOAD -> curLabel.println("function mcj:localvars/push_var_to_stack {index:\"" + varIndex + "\"}");
+			case Opcodes.DLOAD -> curLabel.println("function mcj:localvars/push_var_to_stack {index:\"" + varIndex + "\"}");
+			case Opcodes.ALOAD -> curLabel.println("function mcj:localvars/push_var_to_stack {index:\"" + varIndex + "\"}");
+			case Opcodes.ISTORE -> curLabel.println("function mcj:localvars/pop_var_from_stack {index:\"" + varIndex + "\"}");
+			case Opcodes.LSTORE -> curLabel.println("function mcj:localvars/pop_var_from_stack {index:\"" + varIndex + "\"}");
+			case Opcodes.FSTORE -> curLabel.println("function mcj:localvars/pop_var_from_stack {index:\"" + varIndex + "\"}");
+			case Opcodes.DSTORE -> curLabel.println("function mcj:localvars/pop_var_from_stack {index:\"" + varIndex + "\"}");
+			case Opcodes.ASTORE -> curLabel.println("function mcj:localvars/pop_var_from_stack {index:\"" + varIndex + "\"}");
+			case Opcodes.RET -> throw new MCJException("Unsupported deprecated opcode: " + opcode);
+			default -> throw new MCJException("Unsupported opcode: " + opcode);
 		}
 	}
 	

@@ -8,7 +8,6 @@ public class MinecraftServer {
 	 */
 	@MCJNativeImpl({"""
 			function $(~METHOD_PATH~)/_exec with storage mcj:data localvars.v0
-			function mcj:stack/return_void
 			""", """
 			# _exec
 			$$(value)
@@ -28,7 +27,6 @@ public class MinecraftServer {
 			setblock 0 0 0 oak_sign{front_text:{messages:['{"nbt":"localvars.v0.value","interpret":"false","storage":"mcj:data"}','{"text":""}','{"text":""}','{"text":""}']}}
 			data modify storage mcj:data stack append value {}
 			data modify storage mcj:data stack[-1].value set string block 0 0 0 front_text.messages[0] 9 -2
-			function mcj:stack/return
 			"""})
 	public static native String escape(String msg);
 	

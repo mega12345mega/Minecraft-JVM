@@ -20,12 +20,23 @@ public class MCJClassVisitor extends ClassVisitor {
 		}
 		@Override
 		public void visit(String name, Object value) {
+			int i = name.indexOf(':');
+			if (i != -1) {
+				String namespace = name.substring(0, i);
+				name = name.substring(i + 1);
+				functions = new File(functions.getAbsoluteFile().getParentFile().getParentFile(), namespace + "/functions");
+				try {
+					Files.createDirectories(functions.toPath());
+				} catch (IOException e) {
+					throw new MCJException("Error while creating the functions directory", e);
+				}
+			}
 			init((String) value);
 		}
 	}
 	
-	private final File functions;
-	private final String mainClass; // package.Class$Nested
+	private File functions;
+	private String mainClass; // package.Class$Nested
 	private String name; // package/Class$Nested
 	private boolean isIgnored;
 	private boolean isMainClass;
@@ -95,7 +106,11 @@ public class MCJClassVisitor extends ClassVisitor {
 		}
 		
 		if (exceptions != null && exceptions.length > 0) {
-			throw new MCJException("MCJ cannot compile exceptions! Remove all 'throws's and 'try's");
+			throw new MCJException("MCJ cannot compile exceptions! Remove all 'throw(s)'s and 'try's");
+		}
+		
+		if (MCJUtil.hasOpcode(access, Opcodes.ACC_SYNCHRONIZED)) {
+			// Ignore; it is not currently possible to start another thread anyway
 		}
 		
 		boolean isMain = isMainClass &&

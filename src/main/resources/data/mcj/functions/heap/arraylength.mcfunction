@@ -1,0 +1,1 @@
+function mcj:heap/_arraylength with storage mcj:data stack[-1]

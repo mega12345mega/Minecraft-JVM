@@ -1,0 +1,1 @@
+data modify storage mcj:data stack insert -3 from storage mcj:data stack[-1]

@@ -11,6 +11,16 @@ Compile Java into a Minecraft datapack
 
 ## Limitations
 * Most bytecode instructions are not currently implemented; this is currently a proof of concept, but I plan to complete support for all Java code at some point
+  * The last commit contains most bytecode instructions, but is not well tested. It is missing:
+    * static fields
+    * some duplicate instructions (DUP_X2, DUP2, DUP2_X1, DUP2_X2); if it fails to compile, try to rearrange the code :/
+    * some primitive type casting instructions
+    * floats and doubles
+    * all math (except int variable += some int)
+    * invokedynamic (used in lambdas)
+    * inheritance
+    * instanceof
+* There are no exceptions and no runtime checks, meaning that there is no type safety and you can attempt to create negative length arrays (which is undefined behavior)
 * You can't use anything in the standard library, including `java.lang`; as mentioned above, use `@MCJNativeImpl` and `@MCJImplFor` to provide your own implementation for a class, allowing you to use it again (refer to `com.luneruniverse.minecraft.mcj.api.java.lang.StringBuilder` for an example
 
 ## API
