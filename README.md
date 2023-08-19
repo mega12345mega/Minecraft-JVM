@@ -10,28 +10,29 @@ Compile Java into a Minecraft datapack
 6. Use `/reload` and `/function namespace:main`
 
 ## Limitations
-* Most bytecode instructions are not currently implemented; this is currently a proof of concept, but I plan to complete support for all Java code at some point
-  * The last commit contains most bytecode instructions, but is not well tested. It is missing:
-    * static fields
-    * some duplicate instructions (DUP_X2, DUP2, DUP2_X1, DUP2_X2); if it fails to compile, try to rearrange the code :/
-    * some primitive type casting instructions
-    * floats and doubles
-    * all math (except int variable += some int)
-    * invokedynamic (used in lambdas)
-    * inheritance
-    * instanceof
+* Some bytecode instructions are only partially or not at all implemented, so these things aren't currently possible:
+  * static fields
+  * some duplicate instructions (DUP_X2, DUP2, DUP2_X1, DUP2_X2); if it fails to compile, try to rearrange the code :/
+  * some primitive type casting instructions
+  * floats and doubles (longs untested and not to Java spec)
+  * binary math (like bit-shifting and xor)
+  * invokedynamic (used in lambdas)
+  * inheritance (including for-each's usage of Iterable)
+  * instanceof
 * There are no exceptions and no runtime checks, meaning that there is no type safety and you can attempt to create negative length arrays (which is undefined behavior)
 * You can't use anything in the standard library, including `java.lang`; as mentioned above, use `@MCJNativeImpl` and `@MCJImplFor` to provide your own implementation for a class, allowing you to use it again (refer to `com.luneruniverse.minecraft.mcj.api.java.lang.StringBuilder` for an example
 
 ## API
-The `com.luneruniverse.minecraft.mcj.api` package provides useful methods and native implementations. Refer to the `MinecraftServer` class for useful methods, such as `exec(String)` and `broadcast(String)`.
+The `com.luneruniverse.minecraft.mcj.api` package provides useful methods and standard library replacements. Refer to the `MinecraftServer` class for useful methods, such as `exec(String)` and `getPlayers()`. Use `Array`, `CompoundMap`, and `IterableMap` for more advanced data handling.
 
 ## Example Code
 ```
 public class Example {
 	public static void main(String[] args) {
-		for (int i = 0; i < 5; i++) {
-			MinecraftServer.broadcast("Hello - " + i);
+		// Prints out all online players
+		Player[] players = MinecraftServer.getPlayers();
+		for (int i = 0; i < players.length; i++) {
+			MinecraftServer.broadcast(players[i].getName());
 		}
 	}
 }

@@ -1,3 +1,5 @@
+# Warning: impl of mcj:heap/multianewarray depends on this impl
+
 function mcj:localvars/push_to_intstack
 $function mcj:localvars/pop_vars_from_stack {amount:"$(num_args)"}
 function mcj:stack/push_to_intstack

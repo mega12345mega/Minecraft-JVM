@@ -19,11 +19,14 @@ public class MCJClassVisitor extends ClassVisitor {
 			super(Opcodes.ASM9);
 		}
 		@Override
-		public void visit(String name, Object value) {
-			int i = name.indexOf(':');
+		public void visit(String name, Object obj) {
+			String value = (String) obj;
+			int i = value.indexOf(':');
 			if (i != -1) {
-				String namespace = name.substring(0, i);
-				name = name.substring(i + 1);
+				String namespace = value.substring(0, i);
+				value = value.substring(i + 1);
+				if (value.isEmpty())
+					value = MCJClassVisitor.this.name;
 				functions = new File(functions.getAbsoluteFile().getParentFile().getParentFile(), namespace + "/functions");
 				try {
 					Files.createDirectories(functions.toPath());
@@ -31,7 +34,7 @@ public class MCJClassVisitor extends ClassVisitor {
 					throw new MCJException("Error while creating the functions directory", e);
 				}
 			}
-			init((String) value);
+			init(value);
 		}
 	}
 	
@@ -70,7 +73,7 @@ public class MCJClassVisitor extends ClassVisitor {
 			path.append('/');
 		}
 		path.append("class_");
-		path.append(parts[parts.length - 1]);
+		path.append(parts[parts.length - 1].replace("$", "/class_"));
 		path.append('/');
 		functionPath = path.toString();
 		datapackClass = new File(functions, functionPath);
@@ -118,18 +121,21 @@ public class MCJClassVisitor extends ClassVisitor {
 				MCJUtil.hasOpcodes(access, Opcodes.ACC_PUBLIC, Opcodes.ACC_STATIC) &&
 				descriptor.equals("([Ljava/lang/String;)V");
 		
+		String md5 = MCJUtil.md5(name + descriptor);
 		if (name.equals("<init>"))
-			name = "constructor_";
+			name = "constructor";
 		else
 			name = "method_" + name.toLowerCase();
+		name += "_" + md5;
 		
 		if (isMain) {
 			try {
 				Files.writeString(new File(functions, "main.mcfunction").toPath(), """
 						function mcj:setup
-						function mcj:heap/malloc
+						function mcj:stack/push_const {value:"0"}
+						function mcj:heap/newarray
 						function mcj:stack/invokestatic {method:"$(~MAIN~)",num_args:"1",has_return:"false"}
-						function mcj:heap/free_all
+						execute unless data storage mcj:data debug run function mcj:heap/free_all
 						""".replace("$(~MAIN~)", functionPath + name + "/entry"));
 			} catch (IOException e) {
 				throw new MCJException("Error while creating main.mcfunction", e);

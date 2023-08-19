@@ -55,11 +55,17 @@ public class StringBuilder {
 			# _concat
 			$data modify storage mcj:data concat.a set value "$(a)$(b)"
 			"""})
-	public native StringBuilder append(String value);
+	public native java.lang.StringBuilder append(String value);
 	
+	@MCJNativeImpl({"""
+			function mcj:localvars/push_var_to_stack {index:"0"}
+			function mcj:heap/getfield {name:"value"}
+			function $(~METHOD_PATH~)/free with storage mcj:data localvars.v0
+			""", """
+			# free
+			$data remove storage mcj:data heap.v$(value)
+			"""})
 	@Override
-	public String toString() {
-		return value;
-	}
+	public native String toString();
 	
 }

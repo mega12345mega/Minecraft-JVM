@@ -15,6 +15,16 @@ public class MinecraftServer {
 	public static native void exec(String cmd);
 	
 	/**
+	 * Calls <code>mcj:terminate</code>, which stops the functions in their
+	 * current state by hitting the maxCommandChainLength limit<br>
+	 * <strong>Warning:</strong> DO NOT USE if maxCommandChainLength is very large
+	 */
+	@MCJNativeImpl("""
+			function mcj:terminate
+			""")
+	public static native void terminate();
+	
+	/**
 	 * Escape a string, so it may be used in places like tellraw
 	 * @param msg The string to escape
 	 * @return The original string, with quotes and backslashes escaped
@@ -45,4 +55,25 @@ public class MinecraftServer {
 	public static void broadcast(String msg) {
 		exec("tellraw @a {\"text\":\"" + escape(msg) + "\"}");
 	}
+	
+	public static Player[] getPlayers() {
+		String[] names = new String[0];
+		getPlayers_getList(names);
+		return Player.getPlayers(names);
+	}
+	public static String[] getPlayerNames() {
+		String[] names = new String[0];
+		getPlayers_getList(names);
+		return names;
+	}
+	@MCJNativeImpl({"""
+			execute as @a run function $(~METHOD_PATH~)/add_player with storage mcj:data localvars.v0
+			""", """
+			# add_player
+			$data modify storage mcj:data heap.v$(value).value append value {}
+			execute in mcj:data run setblock 0 0 0 chest
+			execute in mcj:data run loot replace block 0 0 0 container.0 loot mcj:get_own_head
+			$execute in mcj:data run data modify storage mcj:data heap.v$(value).value[-1].value set from block 0 0 0 Items[0].tag.SkullOwner.Name
+			"""})
+	private static native void getPlayers_getList(String[] names);
 }

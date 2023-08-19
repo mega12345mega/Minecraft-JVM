@@ -15,6 +15,7 @@ import java.lang.annotation.Target;
 public @interface MCJImplFor {
 	/**
 	 * The namespace argument is optional (and usually shouldn't be used)<br>
+	 * If a namespace is provided, then the <code>path/to/Class$Nested</code> is not required<br>
 	 * @return The new class name, in the format <code>[&lt;namespace&gt;:]path/to/Class$Nested</code>
 	 */
 	public String value();

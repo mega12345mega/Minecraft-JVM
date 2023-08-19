@@ -9,6 +9,10 @@ import java.util.zip.ZipInputStream;
 
 import org.objectweb.asm.ClassReader;
 
+/**
+ * Check for macros missing the starting $ with this RegEx: /^\s*[^$\s].*\$\([^~].*$/gm<br>
+ * Check for returns missing a value with this RegEx: /return(?! )/g
+ */
 public class MCJ {
 	
 	public static void main(String[] args) throws IOException {
@@ -101,13 +105,17 @@ public class MCJ {
 				if (!entry.isDirectory()) {
 					String name = new File(entry.getName()).getName();
 					if (name.endsWith(".class") && !name.equals("module-info.class") && !name.equals("package-info.class"))
-						compileClass(functions, mainClass, new ClassReader(zipIn));
+						compileClass(functions, mainClass, new ClassReader(zipIn), entry.getName());
 				}
 			}
 		}
 	}
-	private void compileClass(File functions, String mainClass, ClassReader reader) {
-		reader.accept(new MCJClassVisitor(functions, mainClass), 0);
+	private void compileClass(File functions, String mainClass, ClassReader reader, String name) {
+		try {
+			reader.accept(new MCJClassVisitor(functions, mainClass), 0);
+		} catch (MCJException e) {
+			throw new MCJException("Error compiling class '" + name + "'", e);
+		}
 	}
 	
 	private void copyMCJDatapackTo(File datapack) throws IOException {

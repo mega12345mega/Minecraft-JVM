@@ -9,6 +9,7 @@
 .\data\mcj\functions\heap\multianewarray.mcfunction
 .\data\mcj\functions\heap\newarray.mcfunction
 .\data\mcj\functions\heap\putfield.mcfunction
+.\data\mcj\functions\heap\_2newarray.mcfunction
 .\data\mcj\functions\heap\_aload.mcfunction
 .\data\mcj\functions\heap\_arraylength.mcfunction
 .\data\mcj\functions\heap\_astore.mcfunction
@@ -29,6 +30,8 @@
 .\data\mcj\functions\localvars\_pop_vars_from_stack.mcfunction
 .\data\mcj\functions\stack\dup.mcfunction
 .\data\mcj\functions\stack\dup_x1.mcfunction
+.\data\mcj\functions\stack\imath.mcfunction
+.\data\mcj\functions\stack\ineg.mcfunction
 .\data\mcj\functions\stack\invokestatic.mcfunction
 .\data\mcj\functions\stack\lcmp.mcfunction
 .\data\mcj\functions\stack\lookupswitch.mcfunction
@@ -43,4 +46,6 @@
 .\data\mcj\functions\stack\_tableswitch.mcfunction
 .\data\mcj\functions\print.mcfunction
 .\data\mcj\functions\setup.mcfunction
+.\data\mcj\functions\terminate.mcfunction
 .\data\mcj\functions\_print.mcfunction
+.\data\mcj\loot_tables\get_own_head.json

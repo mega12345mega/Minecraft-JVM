@@ -46,26 +46,36 @@ public class MCJMethodVisitor extends MethodVisitor {
 	private class MCJLabel {
 		private class MCJLabelPosition {
 			private int index;
-			private MCJLabelPosition(int index) {
+			private boolean hasGoto;
+			private MCJLabelPosition(int index, boolean hasGoto) {
 				this.index = index;
+				this.hasGoto = hasGoto;
 			}
 			public void println(String line) {
 				if (hasGoto)
-					throw new MCJException("Attempted to println on a label with a goto: " + functionPath + "l" + index);
+					throw new MCJException("Attempted to println on a label with a goto: " + functionPath + "l" + MCJLabel.this.index);
 				builder.insert(index, line + '\n');
-				index += line.length() + 1;
+				positions.forEach((pos, value) -> {
+					if (pos.index >= index)
+						pos.index += line.length() + 1;
+				});
 			}
 			public void printGoto(String line) {
-				if (!hasGoto)
-					throw new MCJException("Attempted to printGoto on a label without a goto: " + functionPath + "l" + index);
 				builder.insert(index, line + '\n');
-				index += line.length() + 1;
+				MCJLabel.this.hasGoto = true;
+				positions.forEach((pos, value) -> {
+					if (pos.index >= index) {
+						pos.hasGoto = true;
+						pos.index += line.length() + 1;
+					}
+				});
 			}
 		}
 		
 		private final int index;
 		private final Label label;
 		private final StringBuilder builder;
+		private final WeakHashMap<MCJLabelPosition, Boolean> positions;
 		private boolean hasGoto;
 		private boolean canCombine; // Can combine with PRECEDING label
 		
@@ -73,6 +83,7 @@ public class MCJMethodVisitor extends MethodVisitor {
 			this.index = index;
 			this.label = label;
 			this.builder = new StringBuilder();
+			this.positions = new WeakHashMap<>();
 			this.hasGoto = false;
 			this.canCombine = true;
 		}
@@ -84,13 +95,15 @@ public class MCJMethodVisitor extends MethodVisitor {
 			builder.append('\n');
 		}
 		public void printGoto(String line) {
-			if (!hasGoto)
-				throw new MCJException("Attempted to printGoto on a label without a goto: " + functionPath + "l" + index);
+			hasGoto = true;
 			builder.append(line);
 			builder.append('\n');
 		}
 		public MCJLabelPosition printHereLater() {
-			return new MCJLabelPosition(builder.length());
+			MCJLabelPosition output = new MCJLabelPosition(builder.length(), hasGoto);
+			positions.put(output, true);
+			builder.append("# Removed by MCJLabel\n"); // Ensure other calls to printHereLater don't try to print to the same index
+			return output;
 		}
 		
 		public void markGoto() {
@@ -115,9 +128,12 @@ public class MCJMethodVisitor extends MethodVisitor {
 			return true;
 		}
 		
+		public String getContents() {
+			return builder.toString().replace("# Removed by MCJLabel\n", "");
+		}
 		public void write() {
 			try {
-				Files.writeString(new File(dir, "l" + index + ".mcfunction").toPath(), builder.toString());
+				Files.writeString(new File(dir, "l" + index + ".mcfunction").toPath(), getContents());
 			} catch (IOException e) {
 				throw new MCJException("Error saving method label", e);
 			}
@@ -251,14 +267,14 @@ public class MCJMethodVisitor extends MethodVisitor {
 	@Override
 	public void visitInsn(int opcode) {
 		// TODO DUP_X2, DUP2, DUP2_X1, DUP2_X2
-		// TODO I2F, L2I, L2F, L2D, F2I, F2L, D2I, D2L, D2F, I2B, I2C, I2S
-		// TODO FCMPL, FCMPG, DCMPL, DCMPG
 		/*
-		 Math:
-   *     IADD, LADD, FADD, DADD, ISUB, LSUB, FSUB, DSUB, IMUL, LMUL, FMUL, DMUL, IDIV, LDIV,
-   *     FDIV, DDIV, IREM, LREM, FREM, DREM, INEG, LNEG, FNEG, DNEG, ISHL, LSHL, ISHR, LSHR, IUSHR,
+		 TODO DIV AND MOD USE floorDiv and floorMod FOR SCOREBOARDS INSTEAD OF / and %. :/
+   *     LADD, FADD, DADD, LSUB, FSUB, DSUB, LMUL, FMUL, DMUL, LDIV,
+   *     FDIV, DDIV, LREM, FREM, DREM, LNEG, FNEG, DNEG, ISHL, LSHL, ISHR, LSHR, IUSHR,
    *     LUSHR, IAND, LAND, IOR, LOR, IXOR, LXOR,
 		 */
+		// TODO I2F, L2I, L2F, L2D, F2I, F2L, D2I, D2L, D2F, I2B, I2C, I2S
+		// TODO FCMPL, FCMPG, DCMPL, DCMPG
 		switch (opcode) {
 			case Opcodes.NOP -> {}
 			case Opcodes.ACONST_NULL -> curLabel.println("function mcj:stack/push_const {value:\"" + NULLPTR + "\"}");
@@ -301,7 +317,42 @@ public class MCJMethodVisitor extends MethodVisitor {
 //			case Opcodes.DUP2_X1 -> ;
 //			case Opcodes.DUP2_X2 -> ;
 			case Opcodes.SWAP -> curLabel.println("function mcj:stack/swap");
-			// Math
+			case Opcodes.IADD -> curLabel.println("function mcj:stack/imath {op:\"+=\"}");
+//			case Opcodes.LADD -> ;
+//			case Opcodes.FADD -> ;
+//			case Opcodes.DADD -> ;
+			case Opcodes.ISUB -> curLabel.println("function mcj:stack/imath {op:\"-=\"}");
+//			case Opcodes.LSUB -> ;
+//			case Opcodes.FSUB -> ;
+//			case Opcodes.DSUB -> ;
+			case Opcodes.IMUL -> curLabel.println("function mcj:stack/imath {op:\"*=\"}");
+//			case Opcodes.LMUL -> ;
+//			case Opcodes.FMUL -> ;
+//			case Opcodes.DMUL -> ;
+			case Opcodes.IDIV -> curLabel.println("function mcj:stack/imath {op:\"/=\"}");
+//			case Opcodes.LDIV -> ;
+//			case Opcodes.FDIV -> ;
+//			case Opcodes.DDIV -> ;
+			case Opcodes.IREM -> curLabel.println("function mcj:stack/imath {op:\"%=\"}");
+//			case Opcodes.LREM -> ;
+//			case Opcodes.FREM -> ;
+//			case Opcodes.DREM -> ;
+			case Opcodes.INEG -> curLabel.println("function mcj:stack/ineg");
+//			case Opcodes.LNEG -> ;
+//			case Opcodes.FNEG -> ;
+//			case Opcodes.DNEG -> ;
+//			case Opcodes.ISHL -> ;
+//			case Opcodes.LSHL -> ;
+//			case Opcodes.ISHR -> ;
+//			case Opcodes.LSHR -> ;
+//			case Opcodes.IUSHR -> ;
+//			case Opcodes.LUSHR -> ;
+//			csae Opcodes.IAND -> ;
+//			case Opcodes.LAND -> ;
+//			case Opcodes.IOR -> ;
+//			case Opcodes.LOR -> ;
+//			case Opcodes.IXOR -> ;
+//			case Opcodes.LXOR -> ;
 			case Opcodes.I2L -> {}
 //			case Opcodes.I2F -> ;
 			case Opcodes.I2D -> {}
@@ -322,12 +373,12 @@ public class MCJMethodVisitor extends MethodVisitor {
 //			case Opcodes.FCMPG -> ;
 //			case Opcodes.DCMPL -> ;
 //			case Opcodes.DCMPG -> ;
-			case Opcodes.IRETURN -> curLabel.println("return");
-			case Opcodes.LRETURN -> curLabel.println("return");
-			case Opcodes.FRETURN -> curLabel.println("return");
-			case Opcodes.DRETURN -> curLabel.println("return");
-			case Opcodes.ARETURN -> curLabel.println("return");
-			case Opcodes.RETURN -> curLabel.println("return");
+			case Opcodes.IRETURN -> curLabel.printGoto("return 0");
+			case Opcodes.LRETURN -> curLabel.printGoto("return 0");
+			case Opcodes.FRETURN -> curLabel.printGoto("return 0");
+			case Opcodes.DRETURN -> curLabel.printGoto("return 0");
+			case Opcodes.ARETURN -> curLabel.printGoto("return 0");
+			case Opcodes.RETURN -> curLabel.printGoto("return 0");
 			case Opcodes.ARRAYLENGTH -> curLabel.println("function mcj:heap/arraylength");
 			case Opcodes.ATHROW -> throw new MCJException("MCJ cannot compile exceptions! Remove all 'throw(s)'s and 'try's");
 			case Opcodes.MONITORENTER -> {} // Ignore; it is not currently possible to start another thread anyway
@@ -489,13 +540,15 @@ public class MCJMethodVisitor extends MethodVisitor {
 			path.append('/');
 		}
 		path.append("class_");
-		path.append(ownerParts[ownerParts.length - 1]);
+		path.append(ownerParts[ownerParts.length - 1].replace("$", "/class_"));
 		if (name.equals("<init>")) {
-			path.append("/constructor_");
+			path.append("/constructor");
 		} else {
 			path.append("/method_");
 			path.append(name);
 		}
+		path.append('_');
+		path.append(MCJUtil.md5(name + descriptor));
 		path.append("/entry");
 		String pathStr = path.toString().toLowerCase();
 		
@@ -645,7 +698,7 @@ public class MCJMethodVisitor extends MethodVisitor {
 			if (execute != null)
 				entrypointValue = "execute " + execute + " run " + entrypointValue;
 			else if (labels.get(0).canCombine)
-				entrypointValue = labels.remove(0).builder.toString();
+				entrypointValue = labels.remove(0).getContents();
 			
 			Files.writeString(new File(dir, "entry.mcfunction").toPath(), entrypointValue);
 			
