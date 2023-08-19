@@ -142,7 +142,7 @@ public class MCJClassVisitor extends ClassVisitor {
 			}
 		}
 		
-		return new MCJMethodVisitor(new File(datapackClass, name), functionPath + name + "/", MCJUtil.hasOpcode(access, Opcodes.ACC_NATIVE));
+		return new MCJMethodVisitor(new File(datapackClass, name), functionPath + name + "/", functionPath, MCJUtil.hasOpcode(access, Opcodes.ACC_NATIVE));
 	}
 	
 }

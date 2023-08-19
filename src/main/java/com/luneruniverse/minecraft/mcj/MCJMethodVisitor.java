@@ -165,6 +165,7 @@ public class MCJMethodVisitor extends MethodVisitor {
 	
 	private final File dir;
 	private final String functionPath;
+	private final String classPath;
 	private final boolean isNative;
 	private boolean isNativeFound;
 	private String execute;
@@ -173,10 +174,11 @@ public class MCJMethodVisitor extends MethodVisitor {
 	private MCJLabel curLabel;
 	private final WeakHashMap<Label, List<Consumer<MCJLabel>>> labelListeners;
 	
-	public MCJMethodVisitor(File dir, String functionPath, boolean isNative) {
+	public MCJMethodVisitor(File dir, String functionPath, String classPath, boolean isNative) {
 		super(Opcodes.ASM9);
 		this.dir = dir;
 		this.functionPath = functionPath;
+		this.classPath = classPath;
 		this.isNative = isNative;
 		this.isNativeFound = false;
 		this.execute = null;
@@ -198,7 +200,7 @@ public class MCJMethodVisitor extends MethodVisitor {
 			if (!isNative)
 				throw new MCJException("@MCJNativeImpl cannot be applied to a non-native method!");
 			isNativeFound = true;
-			return new MCJNativeImplAnnotationVisitor(dir, functionPath);
+			return new MCJNativeImplAnnotationVisitor(dir, functionPath, classPath);
 		}
 		if (descriptor.equals(MCJExecute.class.descriptorString())) {
 			if (isNative)

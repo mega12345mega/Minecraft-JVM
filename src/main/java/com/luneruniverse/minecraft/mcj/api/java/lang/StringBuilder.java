@@ -57,6 +57,39 @@ public class StringBuilder {
 			"""})
 	public native java.lang.StringBuilder append(String value);
 	
+	@MCJNativeImpl("""
+			execute store result score cmp_a mcj_data run data get storage mcj:data localvars.v1.value
+			execute if score cmp_a mcj_data matches 1 run data modify storage mcj:data localvars.v1 set value {value:"true"}
+			execute if score cmp_a mcj_data matches 0 run data modify storage mcj:data localvars.v1 set value {value:"false"}
+			function $(~CLASS_PATH~)/method_append_6f35b7d97976f8fce498b2b46d9d1483/entry
+			""")
+	public native java.lang.StringBuilder append(boolean value);
+	
+//	@MCJNativeImpl("""
+//			function $(~CLASS_PATH~)/method_append_6f35b7d97976f8fce498b2b46d9d1483/entry
+//			""")
+//	public native java.lang.StringBuilder append(char value); TODO
+	
+	@MCJNativeImpl("""
+			function $(~CLASS_PATH~)/method_append_6f35b7d97976f8fce498b2b46d9d1483/entry
+			""")
+	public native java.lang.StringBuilder append(int value);
+	
+//	@MCJNativeImpl("""
+//			function $(~CLASS_PATH~)/method_append_6f35b7d97976f8fce498b2b46d9d1483/entry
+//			""")
+//	public native java.lang.StringBuilder append(long value); TODO
+	
+//	@MCJNativeImpl("""
+//			function $(~CLASS_PATH~)/method_append_6f35b7d97976f8fce498b2b46d9d1483/entry
+//			""")
+//	public native java.lang.StringBuilder append(float value); TODO
+	
+//	@MCJNativeImpl("""
+//			function $(~CLASS_PATH~)/method_append_6f35b7d97976f8fce498b2b46d9d1483/entry
+//			""")
+//	public native java.lang.StringBuilder append(double value); TODO
+	
 	@MCJNativeImpl({"""
 			function mcj:localvars/push_var_to_stack {index:"0"}
 			function mcj:heap/getfield {name:"value"}

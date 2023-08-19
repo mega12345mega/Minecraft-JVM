@@ -35,13 +35,15 @@ public class MCJNativeImplAnnotationVisitor extends AnnotationVisitor {
 	
 	private final File dir;
 	private final String functionPath;
+	private final String classPath;
 	private ArrayVisitor value;
 	private ArrayVisitor files;
 	
-	public MCJNativeImplAnnotationVisitor(File dir, String functionPath) {
+	public MCJNativeImplAnnotationVisitor(File dir, String functionPath, String classPath) {
 		super(Opcodes.ASM9);
 		this.dir = dir;
 		this.functionPath = functionPath;
+		this.classPath = classPath;
 	}
 	
 	@Override
@@ -106,7 +108,7 @@ public class MCJNativeImplAnnotationVisitor extends AnnotationVisitor {
 		values.forEach((fileName, fileContents) -> {
 			try {
 				Files.writeString(new File(dir, fileName + ".mcfunction").toPath(), fileContents.replace("$(~METHOD_PATH~)",
-						functionPath.substring(0, functionPath.length() - 1)));
+						functionPath.substring(0, functionPath.length() - 1)).replace("$(~CLASS_PATH~)", classPath.substring(0, classPath.length() - 1)));
 			} catch (IOException e) {
 				throw new MCJException("Error writing a native file", e);
 			}
