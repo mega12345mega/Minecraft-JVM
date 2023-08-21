@@ -6,18 +6,13 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
 /**
- * Change the namespace, package, and class name of the compiled class (used internally)<br>
+ * Expands paths regardless of the '-expandedPaths' flag (used internally)<br>
  * <strong>Warning:</strong> this does NOT apply this change to anything referring to the class,
  * unless the thing referring to the class is within this class
  */
 @Target(ElementType.TYPE)
 @Retention(RetentionPolicy.CLASS)
 @MCJIgnore
-public @interface MCJImplFor {
-	/**
-	 * The namespace argument is optional (and usually shouldn't be used)<br>
-	 * If a namespace is provided, then the <code>path/to/Class$Nested</code> is not required<br>
-	 * @return The new class name, in the format <code>[&lt;namespace&gt;:]path/to/Class$Nested</code>
-	 */
-	public String value();
+public @interface MCJExpandPath {
+	
 }

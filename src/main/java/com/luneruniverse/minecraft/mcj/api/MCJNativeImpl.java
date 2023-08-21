@@ -21,12 +21,15 @@ public @interface MCJNativeImpl {
 	 * The first value is entered into the <code>&lt;method path&gt;/entry.mcfunction</code> file<br>
 	 * The next values are entered into <code>&lt;method path&gt;/&lt;name&gt;.mcfunction</code> files,
 	 * where <code>&lt;name&gt;</code> is supplied as a comment on the first line of the value<br>
-	 * <code>$(~METHOD_PATH~)</code> will be replaced with the path to the method's function folder<br>
+	 * <code>$(~&lt;name&gt;)</code> will be replaced with the path to the function<br>
+	 * <code>$(method~&lt;method_name&gt;&lt;descriptor&gt;[/&lt;name&gt;])</code> allows you to target a different method<br>
 	 * Example:<br>
 	 * <code><pre>
 	 * @MCJNativeImpl({"""
 	 * 		say foo
-	 * 		function $(~METHOD_PATH~)/helper
+	 * 		function $(~helper)
+	 * 		function $(method~&lt;init&gt;(I)V)
+	 * 		function $(method~toString()Ljava/lang/String;/helper2)
 	 * 		""", """
 	 * 		# helper
 	 * 		say bar
@@ -42,7 +45,8 @@ public @interface MCJNativeImpl {
 	 * but you can optionally include this comment. To avoid confusion with a normal comment,
 	 * you may want to include it anyway.<br>
 	 * Files will be resolved relative to the .jar passed into {@link MCJ#MCJ(File, String)}<br>
-	 * <code>$(~METHOD_PATH~)</code> will be replaced with the path to the method's function folder<br>
+	 * <code>$(~&lt;name&gt;)</code> will be replaced with the path to the function<br>
+	 * <code>$(method~&lt;method_name&gt;&lt;descriptor&gt;[/&lt;name&gt;])</code> allows you to target a different method<br>
 	 * @return A list of files
 	 * @see #value()
 	 */

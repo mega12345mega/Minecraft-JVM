@@ -5,7 +5,7 @@ Compile Java into a Minecraft datapack
 1. Create a Java project and include the latest version's jar file on the buildpath
 2. Write your code, making sure to *avoid anything in the standard library*, including the `java.lang` package (unless you provide your own `@MCJNativeImpl` using `@MCJImplFor` to specify the target class)
 3. Export your code as a jar file, *making sure to include the MCJ library*; the API package it provides will get compiled along with your code
-4. Call `java -jar MCJ.jar file/to/compile.jar path/to/world/datapacks/datapack namespace [-delete]`, where `-delete` causes the output folder to get deleted prior to compilation (if the output folder exists and `-delete` isn't provided, then the compiler may fail)
+4. Call `java -jar MCJ.jar file/to/compile.jar path/to/world/datapacks/datapack namespace [-delete] [-expandedPaths]`, where `-delete` causes the output folder to get deleted prior to compilation (if the output folder exists and `-delete` isn't provided, then the compiler may fail), and `-expandedPaths` exports with full paths rather than an md5 hash for non-entrypoint functions
 5. Launch 23w31a or later (macros are not yet in a release, and they are used extensively to make this possible)
 6. Use `/reload` and `/function namespace:main`
 

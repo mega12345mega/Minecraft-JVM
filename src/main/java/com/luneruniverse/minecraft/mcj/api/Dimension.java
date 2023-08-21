@@ -8,6 +8,10 @@ public class Dimension {
 		this.name = name;
 	}
 	
+	public String getName() {
+		return name;
+	}
+	
 	public Player[] getPlayers() {
 		String[] names = new String[0];
 		getPlayers_getList(names);
@@ -22,10 +26,10 @@ public class Dimension {
 			function mcj:localvars/push_var_to_stack {index:"0"}
 			function mcj:heap/getfield {name:"name"}
 			data modify storage mcj:data stack[-1].names set from storage mcj:data localvars.v1.value
-			function $(~METHOD_PATH~)/pointer_handler with storage mcj:data stack[-1]
+			function $(~pointer_handler) with storage mcj:data stack[-1]
 			""", """
 			# pointer_handler
-			$execute in $(value) as @a[distance=0..] run function $(~METHOD_PATH~)/add_player {names:"$(names)"}
+			$execute in $(value) as @a[distance=0..] run function $(~add_player) {names:"$(names)"}
 			""", """
 			# add_player
 			$data modify storage mcj:data heap.v$(names).value append value {}

@@ -4,6 +4,8 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.nio.file.Files;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
@@ -39,26 +41,33 @@ public class MCJ {
 			System.out.println("The namespace cannot be 'mcj', since this conflicts with part of the native API");
 			return;
 		}
-		if (args.length >= 4 && args[3].equalsIgnoreCase("-delete") && datapack.exists()) {
+		Set<String> flags = new HashSet<>();
+		for (int i = 3; i < args.length; i++) {
+			flags.add(args[i].toLowerCase());
+		}
+		if (flags.contains("-delete") && datapack.exists()) {
 			deleteFile(datapack);
 		}
-		new MCJ(jar, namespace).compileTo(datapack);
+		boolean expandedPaths = flags.contains("-expandedpaths");
+		new MCJ(jar, namespace, expandedPaths).compileTo(datapack);
 	}
-	private static void deleteFile(File file) {
+	private static void deleteFile(File file) throws IOException {
 		if (file.isDirectory()) {
 			for (File subfile : file.listFiles())
 				deleteFile(subfile);
 		}
-		file.delete();
+		Files.delete(file.toPath());
 	}
 	
 	
 	private final File jar;
 	private final String namespace;
+	private final boolean expandedPaths;
 	
-	public MCJ(File jar, String namespace) {
+	public MCJ(File jar, String namespace, boolean expandedPaths) {
 		this.jar = jar;
 		this.namespace = namespace.toLowerCase();
+		this.expandedPaths = expandedPaths;
 	}
 	
 	public void compileTo(File datapack) throws IOException {
@@ -87,7 +96,7 @@ public class MCJ {
 					String contents = new String(zipIn.readAllBytes()).replace("\r", "");
 					for (String line : contents.split("\n")) {
 						if (line.startsWith("Main-Class: ")) {
-							mainClass = line.substring("Main-Class: ".length());
+							mainClass = line.substring("Main-Class: ".length()).replace('.', '/');
 							break;
 						}
 					}
@@ -99,20 +108,22 @@ public class MCJ {
 			throw new MCJException("Missing META-INF/MANIFEST.MF with Main-Class");
 		}
 		
+		MCJPathProvider provider = new MCJPathProvider(datapack, namespace, mainClass, expandedPaths);
+		
 		try (ZipInputStream zipIn = new ZipInputStream(new FileInputStream(jar))) {
 			ZipEntry entry;
 			while ((entry = zipIn.getNextEntry()) != null) {
 				if (!entry.isDirectory()) {
 					String name = new File(entry.getName()).getName();
 					if (name.endsWith(".class") && !name.equals("module-info.class") && !name.equals("package-info.class"))
-						compileClass(functions, mainClass, new ClassReader(zipIn), entry.getName());
+						compileClass(new ClassReader(zipIn), provider, entry.getName());
 				}
 			}
 		}
 	}
-	private void compileClass(File functions, String mainClass, ClassReader reader, String name) {
+	private void compileClass(ClassReader reader, MCJPathProvider provider, String name) {
 		try {
-			reader.accept(new MCJClassVisitor(functions, mainClass), 0);
+			reader.accept(new MCJClassVisitor(provider), 0);
 		} catch (MCJException e) {
 			throw new MCJException("Error compiling class '" + name + "'", e);
 		}

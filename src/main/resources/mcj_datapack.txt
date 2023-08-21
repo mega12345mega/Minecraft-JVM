@@ -48,4 +48,5 @@
 .\data\mcj\functions\setup.mcfunction
 .\data\mcj\functions\terminate.mcfunction
 .\data\mcj\functions\_print.mcfunction
+.\data\mcj\functions\_terminate.mcfunction
 .\data\mcj\loot_tables\get_own_head.json

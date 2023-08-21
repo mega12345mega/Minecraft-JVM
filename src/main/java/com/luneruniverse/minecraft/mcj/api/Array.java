@@ -83,7 +83,7 @@ public class Array<T> implements List<T> {
 	@MCJNativeImpl({"""
 			function mcj:localvars/push_var_to_stack {index:"0"}
 			function mcj:heap/getfield {name:"values"}
-			function $(~METHOD_PATH~)/pointer_handler with storage mcj:data stack[-1]
+			function $(~pointer_handler) with storage mcj:data stack[-1]
 			""", """
 			# pointer_handler
 			$execute store result storage mcj:data stack[-1].value int 1 run data get storage mcj:data heap.v$(value).value
@@ -100,7 +100,7 @@ public class Array<T> implements List<T> {
 			function mcj:localvars/push_var_to_stack {index:"0"}
 			function mcj:heap/getfield {name:"values"}
 			data modify storage mcj:data stack[-1].o set from storage mcj:data localvars.v1.value
-			function $(~METHOD_PATH~)/pointer_handler with storage mcj:data stack[-1]
+			function $(~pointer_handler) with storage mcj:data stack[-1]
 			""", """
 			# pointer_handler
 			$execute store result storage mcj:data stack[-1].value int 1 run execute if data storage mcj:data heap.v$(value).value[{value:$(o)}]
@@ -125,7 +125,7 @@ public class Array<T> implements List<T> {
 			function mcj:heap/getfield {name:"values"}
 			function mcj:heap/malloc
 			data modify storage mcj:data stack[-1].values set from storage mcj:data stack[-2].value
-			function $(~METHOD_PATH~)/pointer_handler with storage mcj:data stack[-1]
+			function $(~pointer_handler) with storage mcj:data stack[-1]
 			""", """
 			# pointer_handler
 			$data modify storage mcj:data heap.v$(value).value set from storage mcj:data heap.v$(values).value
@@ -147,7 +147,7 @@ public class Array<T> implements List<T> {
 			function mcj:localvars/push_var_to_stack {index:"0"}
 			function mcj:heap/getfield {name:"values"}
 			data modify storage mcj:data stack[-1].e set from storage mcj:data localvars.v1.value
-			function $(~METHOD_PATH~)/pointer_handler with storage mcj:data stack[-1]
+			function $(~pointer_handler) with storage mcj:data stack[-1]
 			data modify storage mcj:data stack[-1] set value {value:1b}
 			""", """
 			# pointer_handler
@@ -160,7 +160,7 @@ public class Array<T> implements List<T> {
 			function mcj:localvars/push_var_to_stack {index:"0"}
 			function mcj:heap/getfield {name:"values"}
 			data modify storage mcj:data stack[-1].o set from storage mcj:data localvars.v1.value
-			function $(~METHOD_PATH~)/pointer_handler with storage mcj:data stack[-1]
+			function $(~pointer_handler) with storage mcj:data stack[-1]
 			""", """
 			# pointer_handler
 			$execute store success storage mcj:data stack[-1].value int 1 run data remove storage mcj:data heap.v$(value).value[{value:$(o)}]
@@ -220,7 +220,7 @@ public class Array<T> implements List<T> {
 	@MCJNativeImpl({"""
 			function mcj:localvars/push_var_to_stack {index:"0"}
 			function mcj:heap/getfield {name:"values"}
-			function $(~METHOD_PATH~)/pointer_handler with storage mcj:data stack[-1]
+			function $(~pointer_handler) with storage mcj:data stack[-1]
 			""", """
 			# pointer_handler
 			$data modify storage mcj:data heap.v$(value).value set value []
@@ -232,7 +232,7 @@ public class Array<T> implements List<T> {
 			function mcj:localvars/push_var_to_stack {index:"0"}
 			function mcj:heap/getfield {name:"values"}
 			data modify storage mcj:data stack[-1].index set from storage mcj:data localvars.v1.value
-			function $(~METHOD_PATH~)/pointer_handler with storage mcj:data stack[-1]
+			function $(~pointer_handler) with storage mcj:data stack[-1]
 			""", """
 			# pointer_handler
 			$data modify storage mcj:data stack[-1] set from storage mcj:data heap.v$(value).value[$(index)]
@@ -244,7 +244,7 @@ public class Array<T> implements List<T> {
 		function mcj:localvars/push_var_to_stack {index:"0"}
 		function mcj:heap/getfield {name:"values"}
 		data modify storage mcj:data stack[-1].index set from storage mcj:data localvars.v1.value
-		function $(~METHOD_PATH~)/pointer_handler with storage mcj:data stack[-1]
+		function $(~pointer_handler) with storage mcj:data stack[-1]
 		""", """
 		# pointer_handler
 		$data modify storage mcj:data stack[-1] set from storage mcj:data heap.v$(value).value[$(index)]
@@ -258,7 +258,7 @@ public class Array<T> implements List<T> {
 		function mcj:heap/getfield {name:"values"}
 		data modify storage mcj:data stack[-1].index set from storage mcj:data localvars.v1.value
 		data modify storage mcj:data stack[-1].element set from storage mcj:data localvars.v2.value
-		function $(~METHOD_PATH~)/pointer_handler with storage mcj:data stack[-1]
+		function $(~pointer_handler) with storage mcj:data stack[-1]
 		""", """
 		# pointer_handler
 		$data modify storage mcj:data heap.v$(value).value insert $(index) value {value:$(element)}
@@ -270,7 +270,7 @@ public class Array<T> implements List<T> {
 		function mcj:localvars/push_var_to_stack {index:"0"}
 		function mcj:heap/getfield {name:"values"}
 		data modify storage mcj:data stack[-1].index set from storage mcj:data localvars.v1.value
-		function $(~METHOD_PATH~)/pointer_handler with storage mcj:data stack[-1]
+		function $(~pointer_handler) with storage mcj:data stack[-1]
 		""", """
 		# pointer_handler
 		$data modify storage mcj:data stack[-1] set from storage mcj:data heap.v$(value).value[$(index)]
@@ -323,14 +323,14 @@ public class Array<T> implements List<T> {
 		data modify storage mcj:data stack[-1].target set from storage mcj:data localvars.v1.value
 		execute store result score cmp_a mcj_data run data get storage mcj:data localvars.v2.value
 		execute store result score cmp_b mcj_data run data get storage mcj:data localvars.v3.value
-		function $(~METHOD_PATH~)/_copysublist
+		function $(~_copysublist)
 		""", """
 		# _copysublist
 		execute if score cmp_a mcj_data = cmp_b mcj_data run return 0
 		execute store result storage mcj:data stack[-1].cmp_a int 1 run scoreboard players get cmp_a mcj_data
-		function $(~METHOD_PATH~)/pointer_handler with storage mcj:data stack[-1]
+		function $(~pointer_handler) with storage mcj:data stack[-1]
 		scoreboard players add cmp_a mcj_data 1
-		function $(~METHOD_PATH~)/_copysublist
+		function $(~_copysublist)
 		""", """
 		# pointer_handler
 		$data modify storage mcj:data heap.v$(target).value append from storage mcj:data heap.v$(value).value[$(cmp_a)]

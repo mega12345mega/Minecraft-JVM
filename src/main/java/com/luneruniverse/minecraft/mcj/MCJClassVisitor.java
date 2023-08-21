@@ -1,14 +1,15 @@
 package com.luneruniverse.minecraft.mcj;
 
 import java.io.File;
-import java.io.IOException;
-import java.nio.file.Files;
 
 import org.objectweb.asm.AnnotationVisitor;
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
 
+import com.luneruniverse.minecraft.mcj.MCJPathProvider.ClassPathProvider;
+import com.luneruniverse.minecraft.mcj.MCJPathProvider.MethodPathProvider;
+import com.luneruniverse.minecraft.mcj.api.MCJExpandPath;
 import com.luneruniverse.minecraft.mcj.api.MCJIgnore;
 import com.luneruniverse.minecraft.mcj.api.MCJImplFor;
 
@@ -21,36 +22,33 @@ public class MCJClassVisitor extends ClassVisitor {
 		@Override
 		public void visit(String name, Object obj) {
 			String value = (String) obj;
+			String namespace = classProvider.getNamespace();
 			int i = value.indexOf(':');
 			if (i != -1) {
-				String namespace = value.substring(0, i);
+				namespace = value.substring(0, i);
 				value = value.substring(i + 1);
-				if (value.isEmpty())
-					value = MCJClassVisitor.this.name;
-				functions = new File(functions.getAbsoluteFile().getParentFile().getParentFile(), namespace + "/functions");
-				try {
-					Files.createDirectories(functions.toPath());
-				} catch (IOException e) {
-					throw new MCJException("Error while creating the functions directory", e);
-				}
+				classProvider = classProvider.changeNamespace(namespace);
+			}
+			if (value.isEmpty())
+				value = classProvider.getClassName();
+			else {
+				String path = MCJUtil.formatClassPath(value);
+				classProvider = classProvider.changeClassPath(
+						new File(classProvider.getCompiledFunctions(), path),
+						namespace + ":" + path, value);
 			}
 			init(value);
 		}
 	}
 	
-	private File functions;
-	private String mainClass; // package.Class$Nested
-	private String name; // package/Class$Nested
+	private MCJPathProvider mainProvider;
+	private ClassPathProvider classProvider;
 	private boolean isIgnored;
-	private boolean isMainClass;
-	private File datapackClass;
-	private String functionPath;
-	private boolean isDirCreated;
+	private String originalName;
 	
-	public MCJClassVisitor(File functions, String mainClass) {
+	public MCJClassVisitor(MCJPathProvider mainProvider) {
 		super(Opcodes.ASM9);
-		this.functions = functions;
-		this.mainClass = mainClass;
+		this.mainProvider = mainProvider;
 	}
 	
 	private void init(String name) {
@@ -61,27 +59,20 @@ public class MCJClassVisitor extends ClassVisitor {
 			return;
 		}
 		
-		this.name = name;
-		if (mainClass.replace('.', '/').equals(name))
-			isMainClass = true;
+		String path = MCJUtil.formatClassPath(name);
 		
-		StringBuilder path = new StringBuilder();
-		String[] parts = name.toLowerCase().split("/");
-		for (int i = 0; i < parts.length - 1; i++) {
-			path.append("package_");
-			path.append(parts[i]);
-			path.append('/');
-		}
-		path.append("class_");
-		path.append(parts[parts.length - 1].replace("$", "/class_"));
-		path.append('/');
-		functionPath = path.toString();
-		datapackClass = new File(functions, functionPath);
-		functionPath = functions.getParentFile().getName() + ":" + functionPath;
+		MCJPathProvider provider = (classProvider == null ? mainProvider : classProvider);
+		classProvider = new ClassPathProvider(provider,
+				new File(provider.getCompiledFunctions(), path),
+				provider.getNamespace() + ":" + path,
+				name,
+				originalName,
+				provider.getMainClass().equals(name));
 	}
 	
 	@Override
 	public void visit(int version, int access, String name, String signature, String superName, String[] interfaces) {
+		originalName = name;
 		init(name);
 	}
 	
@@ -91,6 +82,8 @@ public class MCJClassVisitor extends ClassVisitor {
 			isIgnored = true;
 		if (descriptor.equals(MCJImplFor.class.descriptorString()))
 			return new MCJImplForAnnotationVisitor();
+		if (descriptor.equals(MCJExpandPath.class.descriptorString()))
+			classProvider = classProvider.changeExpandedPaths(true);
 		return null;
 	}
 	
@@ -98,15 +91,6 @@ public class MCJClassVisitor extends ClassVisitor {
 	public MethodVisitor visitMethod(int access, String name, String descriptor, String signature, String[] exceptions) {
 		if (isIgnored)
 			return null;
-		
-		if (!isDirCreated) {
-			isDirCreated = true;
-			try {
-				Files.createDirectories(datapackClass.toPath());
-			} catch (IOException e) {
-				throw new MCJException("Error while creating class directory", e);
-			}
-		}
 		
 		if (exceptions != null && exceptions.length > 0) {
 			throw new MCJException("MCJ cannot compile exceptions! Remove all 'throw(s)'s and 'try's");
@@ -116,7 +100,7 @@ public class MCJClassVisitor extends ClassVisitor {
 			// Ignore; it is not currently possible to start another thread anyway
 		}
 		
-		boolean isMain = isMainClass &&
+		boolean isMain = classProvider.isMainClass() &&
 				name.equals("main") &&
 				MCJUtil.hasOpcodes(access, Opcodes.ACC_PUBLIC, Opcodes.ACC_STATIC) &&
 				descriptor.equals("([Ljava/lang/String;)V");
@@ -128,21 +112,14 @@ public class MCJClassVisitor extends ClassVisitor {
 			name = "method_" + name.toLowerCase();
 		name += "_" + md5;
 		
-		if (isMain) {
-			try {
-				Files.writeString(new File(functions, "main.mcfunction").toPath(), """
-						function mcj:setup
-						function mcj:stack/push_const {value:"0"}
-						function mcj:heap/newarray
-						function mcj:stack/invokestatic {method:"$(~MAIN~)",num_args:"1",has_return:"false"}
-						execute unless data storage mcj:data debug run function mcj:heap/free_all
-						""".replace("$(~MAIN~)", functionPath + name + "/entry"));
-			} catch (IOException e) {
-				throw new MCJException("Error while creating main.mcfunction", e);
-			}
-		}
-		
-		return new MCJMethodVisitor(new File(datapackClass, name), functionPath + name + "/", functionPath, MCJUtil.hasOpcode(access, Opcodes.ACC_NATIVE));
+		return new MCJMethodVisitor(new MethodPathProvider(classProvider,
+				new File(classProvider.getClassFunctions(), name),
+				classProvider.getClassFunctionsPath() + "/" + name,
+				MCJUtil.getParamCount(descriptor),
+				isMain,
+				MCJUtil.hasOpcode(access, Opcodes.ACC_STATIC),
+				MCJUtil.hasOpcode(access, Opcodes.ACC_NATIVE),
+				descriptor.endsWith("V")));
 	}
 	
 }

@@ -7,7 +7,7 @@ public class MinecraftServer {
 	 * @param cmd
 	 */
 	@MCJNativeImpl({"""
-			function $(~METHOD_PATH~)/_exec with storage mcj:data localvars.v0
+			function $(~_exec) with storage mcj:data localvars.v0
 			""", """
 			# _exec
 			$$(value)
@@ -30,7 +30,7 @@ public class MinecraftServer {
 	 * @return The original string, with quotes and backslashes escaped
 	 */
 	@MCJNativeImpl({"""
-			execute in mcj:data run function $(~METHOD_PATH~)/_escape
+			execute in mcj:data run function $(~_escape)
 			""", """
 			# _escape
 			setblock 0 0 0 air
@@ -67,7 +67,7 @@ public class MinecraftServer {
 		return names;
 	}
 	@MCJNativeImpl({"""
-			execute as @a run function $(~METHOD_PATH~)/add_player with storage mcj:data localvars.v0
+			execute as @a run function $(~add_player) with storage mcj:data localvars.v0
 			""", """
 			# add_player
 			$data modify storage mcj:data heap.v$(value).value append value {}

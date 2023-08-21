@@ -35,4 +35,40 @@ public class MCJUtil {
 		return output.toString();
 	}
 	
+	public static String formatClassPath(String classPath) {
+		StringBuilder path = new StringBuilder();
+		String[] parts = classPath.toLowerCase().split("/");
+		for (int i = 0; i < parts.length - 1; i++) {
+			path.append("package_");
+			path.append(parts[i]);
+			path.append('/');
+		}
+		path.append("class_");
+		path.append(parts[parts.length - 1].replace("$", "/class_"));
+		return path.toString();
+	}
+	
+	public static int getParamCount(String descriptor) {
+		int output = 0;
+		boolean parsingClass = false;
+		for (char c : descriptor.toCharArray()) {
+			if (parsingClass) {
+				if (c == ';')
+					parsingClass = false;
+			} else {
+				if (c == '(' || c == '[')
+					;
+				else if (c == ')')
+					break;
+				else if (c == 'B' || c == 'C' || c == 'D' || c == 'F' || c == 'I' || c == 'J' || c == 'S' || c == 'Z')
+					output++;
+				else if (c == 'L') {
+					output++;
+					parsingClass = true;
+				}
+			}
+		}
+		return output;
+	}
+	
 }
