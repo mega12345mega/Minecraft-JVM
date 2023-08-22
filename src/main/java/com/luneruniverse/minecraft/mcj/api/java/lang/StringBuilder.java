@@ -5,26 +5,26 @@ import com.luneruniverse.minecraft.mcj.api.MCJNativeImpl;
 
 /**
  * This allows for string concatenation via str1 + str2<br>
- * <strong>Warning:</strong> This is NOT designed to be used directly, and only supports {@link #append(String)}
+ * <strong>Warning:</strong> This is NOT designed to be used directly, and only supports {@link #append(java.lang.String)}
  */
-@MCJImplFor("java/lang/StringBuilder")
+@MCJImplFor("mcj:java/lang/StringBuilder")
 public class StringBuilder {
 	
-	private String value;
+	private java.lang.String value;
 	
-	public StringBuilder(String value) {
+	public StringBuilder(java.lang.String value) {
 		this.value = value;
 	}
 	
 	// Old technique - doesn't work with double quotes or backslashes
 	/*@MCJNativeImpl({"""
-			function $(~METHOD_PATH~)/pointer_handler with storage mcj:data localvars.v0
+			function $(~pointer_handler) with storage mcj:data localvars.v0
 			data modify storage mcj:data stack append from storage mcj:data localvars.v0
 			""", """
 			# pointer_handler
 			$data modify storage mcj:data concat_a set from storage mcj:data heap.v$(value).value.value
 			data modify storage mcj:data concat_b set from storage mcj:data localvars.v1.value
-			function $(~METHOD_PATH~)/concat with storage mcj:data
+			function $(~concat) with storage mcj:data
 			$data modify storage mcj:data heap.v$(value).value.value set from storage mcj:data concat_a
 			""", """
 			# concat
@@ -32,13 +32,13 @@ public class StringBuilder {
 			"""})*/
 	
 	@MCJNativeImpl({"""
-			function $(~METHOD_PATH~)/pointer_handler with storage mcj:data localvars.v0
+			function $(~pointer_handler) with storage mcj:data localvars.v0
 			data modify storage mcj:data stack append from storage mcj:data localvars.v0
 			""", """
 			# pointer_handler
 			$data modify storage mcj:data concat.a set from storage mcj:data heap.v$(value).value.value
 			data modify storage mcj:data concat.b set from storage mcj:data localvars.v1.value
-			execute in mcj:data run function $(~METHOD_PATH~)/concat
+			execute in mcj:data run function $(~concat)
 			$data modify storage mcj:data heap.v$(value).value.value set from storage mcj:data concat.a
 			""", """
 			# concat
@@ -50,55 +50,55 @@ public class StringBuilder {
 			setblock 0 0 0 oak_sign{front_text:{messages:['{"nbt":"concat.b","interpret":"false","storage":"mcj:data"}','{"text":""}','{"text":""}','{"text":""}']}}
 			data modify storage mcj:data concat.b set string block 0 0 0 front_text.messages[0] 9 -2
 			
-			function $(~METHOD_PATH~)/_concat with storage mcj:data concat
+			function $(~_concat) with storage mcj:data concat
 			""", """
 			# _concat
 			$data modify storage mcj:data concat.a set value "$(a)$(b)"
 			"""})
-	public native java.lang.StringBuilder append(String value);
+	public native java.lang.StringBuilder append(java.lang.String value);
 	
 	@MCJNativeImpl("""
 			execute store result score cmp_a mcj_data run data get storage mcj:data localvars.v1.value
 			execute if score cmp_a mcj_data matches 1 run data modify storage mcj:data localvars.v1 set value {value:"true"}
 			execute if score cmp_a mcj_data matches 0 run data modify storage mcj:data localvars.v1 set value {value:"false"}
-			function $(~CLASS_PATH~)/method_append_6f35b7d97976f8fce498b2b46d9d1483/entry
+			function $(method~append(Ljava/lang/String;)Ljava/lang/StringBuilder;)
 			""")
 	public native java.lang.StringBuilder append(boolean value);
 	
 //	@MCJNativeImpl("""
-//			function $(~CLASS_PATH~)/method_append_6f35b7d97976f8fce498b2b46d9d1483/entry
+//			function $(method~append(Ljava/lang/String;)Ljava/lang/StringBuilder;)
 //			""")
 //	public native java.lang.StringBuilder append(char value); TODO
 	
 	@MCJNativeImpl("""
-			function $(~CLASS_PATH~)/method_append_6f35b7d97976f8fce498b2b46d9d1483/entry
+			function $(method~append(Ljava/lang/String;)Ljava/lang/StringBuilder;)
 			""")
 	public native java.lang.StringBuilder append(int value);
 	
 //	@MCJNativeImpl("""
-//			function $(~CLASS_PATH~)/method_append_6f35b7d97976f8fce498b2b46d9d1483/entry
+//			function $(method~append(Ljava/lang/String;)Ljava/lang/StringBuilder;)
 //			""")
 //	public native java.lang.StringBuilder append(long value); TODO
 	
 //	@MCJNativeImpl("""
-//			function $(~CLASS_PATH~)/method_append_6f35b7d97976f8fce498b2b46d9d1483/entry
+//			function $(method~append(Ljava/lang/String;)Ljava/lang/StringBuilder;)
 //			""")
 //	public native java.lang.StringBuilder append(float value); TODO
 	
 //	@MCJNativeImpl("""
-//			function $(~CLASS_PATH~)/method_append_6f35b7d97976f8fce498b2b46d9d1483/entry
+//			function $(method~append(Ljava/lang/String;)Ljava/lang/StringBuilder;)
 //			""")
 //	public native java.lang.StringBuilder append(double value); TODO
 	
 	@MCJNativeImpl({"""
 			function mcj:localvars/push_var_to_stack {index:"0"}
 			function mcj:heap/getfield {name:"value"}
-			function $(~METHOD_PATH~)/free with storage mcj:data localvars.v0
+			function $(~free) with storage mcj:data localvars.v0
 			""", """
 			# free
 			$data remove storage mcj:data heap.v$(value)
 			"""})
 	@Override
-	public native String toString();
+	public native java.lang.String toString();
 	
 }

@@ -1,1 +1,1 @@
-$data remove storage mcj:data heap.v$(pointer)
+$data remove storage mcj:data heap.v$(value)

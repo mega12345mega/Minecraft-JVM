@@ -6,11 +6,11 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
 /**
- * Prevents MCJ from compiling the entire class
+ * Expands paths for this class regardless of the '-expandedPaths' flag
  */
 @Target(ElementType.TYPE)
 @Retention(RetentionPolicy.CLASS)
 @MCJIgnore
-public @interface MCJIgnore {
+public @interface MCJExpandPath {
 	
 }

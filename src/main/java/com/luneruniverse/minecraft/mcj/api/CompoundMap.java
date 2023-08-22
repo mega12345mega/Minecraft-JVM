@@ -7,6 +7,7 @@ package com.luneruniverse.minecraft.mcj.api;
  * @param <K> The key type
  * @param <V> The value type
  */
+@MCJImplFor("mcj:")
 public class CompoundMap<K, V> {
 	
 	public CompoundMap() {
@@ -14,7 +15,7 @@ public class CompoundMap<K, V> {
 	}
 	
 	@MCJNativeImpl({"""
-			function $(~METHOD_PATH~)/pointer_handler with storage mcj:data localvars.v0
+			function $(~pointer_handler) with storage mcj:data localvars.v0
 			""", """
 			# pointer_handler
 			data modify storage mcj:data stack append value {}
@@ -28,7 +29,7 @@ public class CompoundMap<K, V> {
 	
 	@MCJNativeImpl({"""
 			data modify storage mcj:data localvars.v0.key set from storage mcj:data localvars.v1.value
-			function $(~METHOD_PATH~)/pointer_handler with storage mcj:data localvars.v0
+			function $(~pointer_handler) with storage mcj:data localvars.v0
 			""", """
 			# pointer_handler
 			data modify storage mcj:data stack append value {value:0b}
@@ -38,7 +39,7 @@ public class CompoundMap<K, V> {
 	
 	@MCJNativeImpl({"""
 		data modify storage mcj:data localvars.v0.key set from storage mcj:data localvars.v1.value
-		function $(~METHOD_PATH~)/pointer_handler with storage mcj:data localvars.v0
+		function $(~pointer_handler) with storage mcj:data localvars.v0
 		""", """
 		# pointer_handler
 		data modify storage mcj:data stack append value {value:0}
@@ -48,7 +49,7 @@ public class CompoundMap<K, V> {
 	
 	@MCJNativeImpl({"""
 		data modify storage mcj:data localvars.v0.key set from storage mcj:data localvars.v1.value
-		function $(~METHOD_PATH~)/pointer_handler with storage mcj:data localvars.v0
+		function $(~pointer_handler) with storage mcj:data localvars.v0
 		""", """
 		# pointer_handler
 		data modify storage mcj:data stack append value {value:0}
@@ -59,7 +60,7 @@ public class CompoundMap<K, V> {
 	
 	@MCJNativeImpl({"""
 		data modify storage mcj:data localvars.v0.key set from storage mcj:data localvars.v1.value
-		function $(~METHOD_PATH~)/pointer_handler with storage mcj:data localvars.v0
+		function $(~pointer_handler) with storage mcj:data localvars.v0
 		""", """
 		# pointer_handler
 		data modify storage mcj:data stack append value {value:0}
@@ -69,7 +70,7 @@ public class CompoundMap<K, V> {
 	public native V remove(Object key);
 	
 	@MCJNativeImpl({"""
-		function $(~METHOD_PATH~)/pointer_handler with storage mcj:data localvars.v0
+		function $(~pointer_handler) with storage mcj:data localvars.v0
 		""", """
 		# pointer_handler
 		data modify storage mcj:data heap.v$(value).map set value {}

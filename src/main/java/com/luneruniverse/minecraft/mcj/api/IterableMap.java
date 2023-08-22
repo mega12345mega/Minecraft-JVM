@@ -6,6 +6,7 @@ package com.luneruniverse.minecraft.mcj.api;
  * @param <K> The key type
  * @param <V> The value type
  */
+@MCJImplFor("mcj:")
 public class IterableMap<K, V> implements Iterable<K> {
 	
 	private final Array<K> keys;

@@ -1,18 +1,36 @@
 package com.luneruniverse.minecraft.mcj.api;
 
+@MCJImplFor("mcj:")
 public class MinecraftServer {
 	/**
 	 * Execute a command as if it was listed in the mcfunction file;
-	 * this means that it will be executed as the initial caller, unless <code>execute as</code> was used somewhere
+	 * this means that it will be executed as the initial caller, unless <code>execute as</code> was used somewhere<br>
+	 * Use {@link #execFunction(String)} if you are using <code>"function " + function</code> for performance
 	 * @param cmd
+	 * @see #execFunction(String)
 	 */
 	@MCJNativeImpl({"""
-			function $(~METHOD_PATH~)/_exec with storage mcj:data localvars.v0
+			function $(~_exec) with storage mcj:data localvars.v0
 			""", """
 			# _exec
 			$$(value)
 			"""})
 	public static native void exec(String cmd);
+	
+	/**
+	 * Executes a function<br>
+	 * This is preferable to {@link #exec(String)} with <code>"function " + function</code> since a macro is used instead
+	 * of string concatenation
+	 * @param function The function to execute
+	 * @see #exec(String)
+	 */
+	@MCJNativeImpl({"""
+			function $(~_exec_function) with storage mcj:data localvars.v0
+			""", """
+			# _exec_function
+			$function $(value)
+			"""})
+	public static native void execFunction(String function);
 	
 	/**
 	 * Calls <code>mcj:terminate</code>, which stops the functions in their
@@ -30,7 +48,7 @@ public class MinecraftServer {
 	 * @return The original string, with quotes and backslashes escaped
 	 */
 	@MCJNativeImpl({"""
-			execute in mcj:data run function $(~METHOD_PATH~)/_escape
+			execute in mcj:data run function $(~_escape)
 			""", """
 			# _escape
 			setblock 0 0 0 air
@@ -67,7 +85,7 @@ public class MinecraftServer {
 		return names;
 	}
 	@MCJNativeImpl({"""
-			execute as @a run function $(~METHOD_PATH~)/add_player with storage mcj:data localvars.v0
+			execute as @a run function $(~add_player) with storage mcj:data localvars.v0
 			""", """
 			# add_player
 			$data modify storage mcj:data heap.v$(value).value append value {}
@@ -76,4 +94,9 @@ public class MinecraftServer {
 			$execute in mcj:data run data modify storage mcj:data heap.v$(value).value[-1].value set from block 0 0 0 Items[0].tag.SkullOwner.Name
 			"""})
 	private static native void getPlayers_getList(String[] names);
+	
+	@MCJNativeImpl("""
+			function mcj:heap/free with storage mcj:data localvars.v0
+			""")
+	public static native void free(Object obj);
 }

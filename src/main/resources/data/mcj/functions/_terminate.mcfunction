@@ -1,0 +1,1 @@
+function mcj:_terminate

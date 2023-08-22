@@ -11,6 +11,8 @@ import java.util.Map;
 import org.objectweb.asm.AnnotationVisitor;
 import org.objectweb.asm.Opcodes;
 
+import com.luneruniverse.minecraft.mcj.MCJPathProvider.MethodPathProvider;
+
 public class MCJNativeImplAnnotationVisitor extends AnnotationVisitor {
 	
 	private static class ArrayVisitor extends AnnotationVisitor {
@@ -33,17 +35,13 @@ public class MCJNativeImplAnnotationVisitor extends AnnotationVisitor {
 		}
 	}
 	
-	private final File dir;
-	private final String functionPath;
-	private final String classPath;
+	private final MethodPathProvider provider;
 	private ArrayVisitor value;
 	private ArrayVisitor files;
 	
-	public MCJNativeImplAnnotationVisitor(File dir, String functionPath, String classPath) {
+	public MCJNativeImplAnnotationVisitor(MethodPathProvider provider) {
 		super(Opcodes.ASM9);
-		this.dir = dir;
-		this.functionPath = functionPath;
-		this.classPath = classPath;
+		this.provider = provider;
 	}
 	
 	@Override
@@ -70,7 +68,7 @@ public class MCJNativeImplAnnotationVisitor extends AnnotationVisitor {
 					throw new MCJException("Invalid value in @MCJNativeImpl; the first line must be '# <file name>'");
 				String fileName = processFileName(helperFile[0].substring("# ".length()));
 				if (values.put(fileName, helperFile.length < 2 ? "" : helperFile[1]) != null)
-					throw new MCJException("Duplicate @MCJNativeImpl file names: " + fileName + " (" + functionPath + ")");
+					throw new MCJException("Duplicate @MCJNativeImpl file names: " + fileName + " (" + provider.getMethodFunctionsPath() + ")");
 			}
 		}
 		
@@ -98,7 +96,7 @@ public class MCJNativeImplAnnotationVisitor extends AnnotationVisitor {
 					}
 					
 					if (values.put(fileName, fileContents) != null)
-						throw new MCJException("Duplicate @MCJNativeImpl file names: " + fileName + " (" + functionPath + ")");
+						throw new MCJException("Duplicate @MCJNativeImpl file names: " + fileName + " (" + provider.getMethodFunctionsPath() + ")");
 				}
 			} catch (IOException e) {
 				throw new MCJException("Error reading a @MCJNativeImpl file", e);
@@ -107,8 +105,8 @@ public class MCJNativeImplAnnotationVisitor extends AnnotationVisitor {
 		
 		values.forEach((fileName, fileContents) -> {
 			try {
-				Files.writeString(new File(dir, fileName + ".mcfunction").toPath(), fileContents.replace("$(~METHOD_PATH~)",
-						functionPath.substring(0, functionPath.length() - 1)).replace("$(~CLASS_PATH~)", classPath.substring(0, classPath.length() - 1)));
+				provider.writeToFile(new File(provider.getMethodFunctions(), fileName + ".mcfunction"),
+						MCJUtil.processNativeFile(provider, fileContents));
 			} catch (IOException e) {
 				throw new MCJException("Error writing a native file", e);
 			}
@@ -118,7 +116,7 @@ public class MCJNativeImplAnnotationVisitor extends AnnotationVisitor {
 	private String processFileName(String fileName) {
 		if (fileName.endsWith(".mcfunction")) {
 			fileName = fileName.substring(0, fileName.length() - ".mcfunction".length());
-			System.out.println("[Warning] You don't have to specify .mcfunction in the file name comment (" + functionPath + fileName + ")");
+			System.out.println("[Warning] You don't have to specify .mcfunction in the file name comment (" + provider.getMethodFunctionsPath() + "/" + fileName + ")");
 		}
 		return fileName;
 	}

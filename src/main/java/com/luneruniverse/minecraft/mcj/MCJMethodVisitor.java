@@ -2,7 +2,6 @@ package com.luneruniverse.minecraft.mcj;
 
 import java.io.File;
 import java.io.IOException;
-import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -18,6 +17,8 @@ import org.objectweb.asm.Label;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
 
+import com.luneruniverse.minecraft.mcj.MCJPathProvider.MethodPathProvider;
+import com.luneruniverse.minecraft.mcj.api.MCJEntrypoint;
 import com.luneruniverse.minecraft.mcj.api.MCJExecute;
 import com.luneruniverse.minecraft.mcj.api.MCJNativeImpl;
 
@@ -53,7 +54,8 @@ public class MCJMethodVisitor extends MethodVisitor {
 			}
 			public void println(String line) {
 				if (hasGoto)
-					throw new MCJException("Attempted to println on a label with a goto: " + functionPath + "l" + MCJLabel.this.index);
+					throw new MCJException("Attempted to println on a label with a goto: " + provider.getMethodFunctionsPath() + "/l" + MCJLabel.this.index);
+				int index = this.index;
 				builder.insert(index, line + '\n');
 				positions.forEach((pos, value) -> {
 					if (pos.index >= index)
@@ -61,6 +63,7 @@ public class MCJMethodVisitor extends MethodVisitor {
 				});
 			}
 			public void printGoto(String line) {
+				int index = this.index;
 				builder.insert(index, line + '\n');
 				MCJLabel.this.hasGoto = true;
 				positions.forEach((pos, value) -> {
@@ -90,7 +93,7 @@ public class MCJMethodVisitor extends MethodVisitor {
 		
 		public void println(String line) {
 			if (hasGoto)
-				throw new MCJException("Attempted to println on a label with a goto: " + functionPath + "l" + index);
+				throw new MCJException("Attempted to println on a label with a goto: " + provider.getMethodFunctionsPath() + "/l" + index);
 			builder.append(line);
 			builder.append('\n');
 		}
@@ -114,7 +117,7 @@ public class MCJMethodVisitor extends MethodVisitor {
 		}
 		
 		public String getFunctionPath() {
-			return functionPath + "l" + index;
+			return provider.getActualFunctionPath(provider.getMethodFunctionsPath() + "/l" + index);
 		}
 		
 		public boolean combine(MCJLabel successor) {
@@ -133,7 +136,7 @@ public class MCJMethodVisitor extends MethodVisitor {
 		}
 		public void write() {
 			try {
-				Files.writeString(new File(dir, "l" + index + ".mcfunction").toPath(), getContents());
+				provider.writeToFile(new File(provider.getMethodFunctions(), "l" + index + ".mcfunction"), getContents());
 			} catch (IOException e) {
 				throw new MCJException("Error saving method label", e);
 			}
@@ -163,49 +166,76 @@ public class MCJMethodVisitor extends MethodVisitor {
 		}
 	}
 	
-	private final File dir;
-	private final String functionPath;
-	private final String classPath;
-	private final boolean isNative;
+	private class MCJEntrypointAnnotationVisitor extends AnnotationVisitor {
+		public MCJEntrypointAnnotationVisitor() {
+			super(Opcodes.ASM9);
+		}
+		@Override
+		public void visit(String name, Object value) {
+			if (name.equals("value")) {
+				entrypoint = (String) value;
+				if (entrypoint.endsWith(".mcfunction"))
+					System.out.println("[Warning] You don't have to specify .mcfunction in @MCJEntrypoint (" + provider.getMethodFunctionsPath() + ")");
+				else
+					entrypoint += ".mcfunction";
+			} else if (name.equals("setup")) {
+				entrypointSetup = (Boolean) value;
+			} else if (name.equals("gc")) {
+				entrypointGC = (Boolean) value;
+			} else {
+				throw new MCJException("Malformed @MCJEntrypoint; unknown argument '" + name + "'");
+			}
+		}
+	}
+	
+	private final MethodPathProvider provider;
 	private boolean isNativeFound;
 	private String execute;
+	private String entrypoint;
+	private boolean entrypointSetup;
+	private boolean entrypointGC;
 	private final Map<Integer, MCJLabel> labels;
 	private int labelIndex;
 	private MCJLabel curLabel;
 	private final WeakHashMap<Label, List<Consumer<MCJLabel>>> labelListeners;
+	private final String[] parameters;
 	
-	public MCJMethodVisitor(File dir, String functionPath, String classPath, boolean isNative) {
+	public MCJMethodVisitor(MethodPathProvider provider) {
 		super(Opcodes.ASM9);
-		this.dir = dir;
-		this.functionPath = functionPath;
-		this.classPath = classPath;
-		this.isNative = isNative;
+		this.provider = provider;
 		this.isNativeFound = false;
 		this.execute = null;
+		this.entrypoint = null;
+		this.entrypointSetup = false;
+		this.entrypointGC = false;
 		this.labels = new HashMap<>();
 		this.labelIndex = -1;
 		this.curLabel = null;
 		this.labelListeners = new WeakHashMap<>();
+		this.parameters = new String[provider.getParamCount()];
 		
-		try {
-			Files.createDirectory(dir.toPath());
-		} catch (IOException e) {
-			throw new MCJException("Error creating method dir", e);
-		}
+		// native methods don't have local variables, so they need default parameter names
+		for (int i = 0; i < parameters.length; i++)
+			parameters[i] = "arg" + i;
 	}
 	
 	@Override
 	public AnnotationVisitor visitAnnotation(String descriptor, boolean visible) {
 		if (descriptor.equals(MCJNativeImpl.class.descriptorString())) {
-			if (!isNative)
+			if (!provider.isNativeMethod())
 				throw new MCJException("@MCJNativeImpl cannot be applied to a non-native method!");
 			isNativeFound = true;
-			return new MCJNativeImplAnnotationVisitor(dir, functionPath, classPath);
+			return new MCJNativeImplAnnotationVisitor(provider);
 		}
 		if (descriptor.equals(MCJExecute.class.descriptorString())) {
-			if (isNative)
+			if (provider.isNativeMethod())
 				throw new MCJException("@MCJExecute cannot be applied to a native method!");
 			return new MCJExecuteAnnotationVisitor();
+		}
+		if (descriptor.equals(MCJEntrypoint.class.descriptorString())) {
+			if (!provider.isStaticMethod())
+				throw new MCJException("@MCJEntrypoint cannot be a applied to a non-static method!");
+			return new MCJEntrypointAnnotationVisitor();
 		}
 		return null;
 	}
@@ -488,7 +518,8 @@ public class MCJMethodVisitor extends MethodVisitor {
 	
 	@Override
 	public void visitLocalVariable(String name, String descriptor, String signature, Label start, Label end, int index) {
-		// Ignore
+		if (index < parameters.length)
+			parameters[index] = name;
 	}
 	
 	@Override
@@ -534,15 +565,12 @@ public class MCJMethodVisitor extends MethodVisitor {
 	
 	@Override
 	public void visitMethodInsn(int opcode, String owner, String name, String descriptor, boolean isInterface) {
-		StringBuilder path = new StringBuilder(functionPath.substring(0, functionPath.indexOf(':') + 1));
-		String[] ownerParts = owner.split("/");
-		for (int i = 0; i < ownerParts.length - 1; i++) {
-			path.append("package_");
-			path.append(ownerParts[i]);
-			path.append('/');
+		if (owner.equals("java/lang/Object") && name.equals("<init>") && descriptor.equals("()V")) {
+			curLabel.println("function mcj:stack/pop");
+			return;
 		}
-		path.append("class_");
-		path.append(ownerParts[ownerParts.length - 1].replace("$", "/class_"));
+		
+		StringBuilder path = new StringBuilder(provider.getTracker().getClassPath(owner));
 		if (name.equals("<init>")) {
 			path.append("/constructor");
 		} else {
@@ -552,37 +580,16 @@ public class MCJMethodVisitor extends MethodVisitor {
 		path.append('_');
 		path.append(MCJUtil.md5(name + descriptor));
 		path.append("/entry");
-		String pathStr = path.toString().toLowerCase();
+		String pathStr = provider.getActualFunctionPath(path.toString().toLowerCase());
 		
-		int numArgs = 0;
-		boolean parsingClass = false;
-		for (char c : descriptor.toCharArray()) {
-			if (parsingClass) {
-				if (c == ';')
-					parsingClass = false;
-			} else {
-				if (c == '(' || c == '[')
-					;
-				else if (c == ')')
-					break;
-				else if (c == 'B' || c == 'C' || c == 'D' || c == 'F' || c == 'I' || c == 'J' || c == 'S' || c == 'Z')
-					numArgs++;
-				else if (c == 'L') {
-					numArgs++;
-					parsingClass = true;
-				}
-			}
-		}
-		
+		int numArgs = MCJUtil.getParamCount(descriptor);
 		boolean hasReturn = descriptor.charAt(descriptor.length() - 1) != 'V';
 		
 		switch (opcode) { // TODO unordered
 			case Opcodes.INVOKESTATIC -> curLabel.println("function mcj:stack/invokestatic {method:\"" + pathStr + "\",num_args:\"" + numArgs + "\",has_return:\"" + hasReturn + "\"}");
 			case Opcodes.INVOKEVIRTUAL, Opcodes.INVOKESPECIAL, Opcodes.INVOKEINTERFACE -> {
-				if (owner.equals("java/lang/Object") && name.equals("<init>") && descriptor.equals("()V"))
-					curLabel.println("function mcj:stack/pop");
-				else // TODO method resolution doesn't handle superclasses/interfaces
-					curLabel.println("function mcj:stack/invokestatic {method:\"" + pathStr + "\",num_args:\"" + (numArgs + 1) + "\",has_return:\"" + hasReturn + "\"}");
+				// TODO method resolution doesn't handle superclasses/interfaces
+				curLabel.println("function mcj:stack/invokestatic {method:\"" + pathStr + "\",num_args:\"" + (numArgs + 1) + "\",has_return:\"" + hasReturn + "\"}");
 			}
 			default -> throw new MCJException("Unsupported opcode: " + opcode);
 		}
@@ -667,10 +674,64 @@ public class MCJMethodVisitor extends MethodVisitor {
 	
 	@Override
 	public void visitEnd() {
-		if (isNative) {
+		try {
+			// Default entrypoint namespace:main
+			if (provider.isMainMethod() && entrypoint == null) {
+				try {
+					provider.writeToActualFile(new File(provider.getCompiledFunctions(), "main.mcfunction"), """
+							function mcj:setup
+							data remove storage mcj:data running
+							function mcj:stack/push_const {value:"0"}
+							function mcj:heap/newarray
+							function mcj:stack/invokestatic {method:"$(~MAIN~)",num_args:"1",has_return:"false"}
+							data modify storage mcj:data running set value 1b
+							""".replace("$(~MAIN~)", provider.getActualFunctionPath(provider.getMethodFunctionsPath() + "/entry")));
+				} catch (IOException e) {
+					throw new MCJException("Error while creating main.mcfunction", e);
+				}
+			}
+			
+			// Custom entrypoint
+			if (entrypoint != null) {
+				StringBuilder args = new StringBuilder();
+				for (String parameter : parameters) {
+					args.append("$data modify storage mcj:data stack append value {value:$(");
+					args.append(parameter);
+					args.append(")}\n");
+				}
+				
+				String entrypointPath = provider.getNamespace() + ":" +
+						entrypoint.substring(0, entrypoint.length() - ".mcfunction".length());
+				
+				provider.writeToActualFile(new File(provider.getCompiledFunctions(), entrypoint), """
+						$(~SETUP~)
+						data modify storage mcj:data executing set value "$(~ENTRYPOINT_PATH~)"
+						$(~ARGS~)function mcj:stack/invokestatic {method:"$(~MAIN~)",num_args:"$(~NUM_ARGS~)",has_return:"$(~HAS_RETURN~)"}
+						$(~DISABLE_EXEC~)
+						$(~GC~)"""
+						.replace("$(~SETUP~)", entrypointSetup ? "function mcj:setup" :
+							"execute unless data storage mcj:data running run return run tellraw @a {\"text\":\"Failed to run entrypoint '" +
+								entrypointPath + "' due to Minecraft JVM being halted. Use /function mcj:setup to reset.\",\"color\":\"red\"}\n" +
+							"data modify storage mcj:data intstack append value {}\n" +
+							"execute if data storage mcj:data executing run data modify storage mcj:data intstack[-1].executing set value 1b")
+						.replace("$(~ENTRYPOINT_PATH~)", entrypointPath)
+						.replace("$(~ARGS~)", args)
+						.replace("$(~MAIN~)", provider.getActualFunctionPath(provider.getMethodFunctionsPath() + "/entry"))
+						.replace("$(~NUM_ARGS~)", "" + parameters.length)
+						.replace("$(~HAS_RETURN~)", provider.isVoidMethod() ? "false" : "true")
+						.replace("$(~DISABLE_EXEC~)", entrypointSetup ? "data remove storage mcj:data executing" :
+							"execute unless data storage mcj:data intstack[-1].executing run data remove storage mcj:data executing\n" +
+							"function mcj:intstack/pop")
+						.replace("$(~GC~)", entrypointGC ? "execute unless data storage mcj:data debug run function mcj:heap/free_all" : ""));
+			}
+		} catch (IOException e) {
+			throw new MCJException("Error saving method to files", e);
+		}
+		
+		if (provider.isNativeMethod()) {
 			if (!isNativeFound) {
 				System.out.println("[Warning] Missing @MCJNativeImpl on a native method! "
-						+ "Are you going to add the implementation manually? (" + functionPath + ")");
+						+ "Are you going to add the implementation manually? (" + provider.getMethodFunctionsPath() + ")");
 			}
 			return;
 		}
@@ -695,14 +756,14 @@ public class MCJMethodVisitor extends MethodVisitor {
 					labels.remove(i + 1);
 			}
 			
-			// Entrypoint & combining label 0
-			String entrypointValue = "function " + functionPath + "l0";
+			// Entry & combining label 0
+			String entryValue = "function " + provider.getActualFunctionPath(provider.getMethodFunctionsPath() + "/l0");
 			if (execute != null)
-				entrypointValue = "execute " + execute + " run " + entrypointValue;
+				entryValue = "execute " + execute + " run " + entryValue;
 			else if (labels.get(0).canCombine)
-				entrypointValue = labels.remove(0).getContents();
+				entryValue = labels.remove(0).getContents();
 			
-			Files.writeString(new File(dir, "entry.mcfunction").toPath(), entrypointValue);
+			provider.writeToFile(new File(provider.getMethodFunctions(), "entry.mcfunction"), entryValue);
 			
 			// Labels: writing
 			for (MCJLabel label : labels)
