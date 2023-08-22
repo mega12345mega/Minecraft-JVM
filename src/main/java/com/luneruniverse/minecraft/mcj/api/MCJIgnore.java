@@ -6,7 +6,7 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
 /**
- * Prevents MCJ from compiling the entire class (used internally)
+ * Prevents MCJ from compiling the entire class
  */
 @Target(ElementType.TYPE)
 @Retention(RetentionPolicy.CLASS)

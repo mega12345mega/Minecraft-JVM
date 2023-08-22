@@ -9,7 +9,6 @@ import org.objectweb.asm.Opcodes;
 
 import com.luneruniverse.minecraft.mcj.MCJPathProvider.ClassPathProvider;
 import com.luneruniverse.minecraft.mcj.MCJPathProvider.MethodPathProvider;
-import com.luneruniverse.minecraft.mcj.api.MCJExpandPath;
 import com.luneruniverse.minecraft.mcj.api.MCJIgnore;
 import com.luneruniverse.minecraft.mcj.api.MCJImplFor;
 
@@ -44,7 +43,6 @@ public class MCJClassVisitor extends ClassVisitor {
 	private MCJPathProvider mainProvider;
 	private ClassPathProvider classProvider;
 	private boolean isIgnored;
-	private String originalName;
 	
 	public MCJClassVisitor(MCJPathProvider mainProvider) {
 		super(Opcodes.ASM9);
@@ -66,13 +64,11 @@ public class MCJClassVisitor extends ClassVisitor {
 				new File(provider.getCompiledFunctions(), path),
 				provider.getNamespace() + ":" + path,
 				name,
-				originalName,
 				provider.getMainClass().equals(name));
 	}
 	
 	@Override
 	public void visit(int version, int access, String name, String signature, String superName, String[] interfaces) {
-		originalName = name;
 		init(name);
 	}
 	
@@ -82,8 +78,6 @@ public class MCJClassVisitor extends ClassVisitor {
 			isIgnored = true;
 		if (descriptor.equals(MCJImplFor.class.descriptorString()))
 			return new MCJImplForAnnotationVisitor();
-		if (descriptor.equals(MCJExpandPath.class.descriptorString()))
-			classProvider = classProvider.changeExpandedPaths(true);
 		return null;
 	}
 	

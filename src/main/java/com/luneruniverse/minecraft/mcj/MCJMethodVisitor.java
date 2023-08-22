@@ -172,14 +172,19 @@ public class MCJMethodVisitor extends MethodVisitor {
 		}
 		@Override
 		public void visit(String name, Object value) {
-			if (!name.equals("value"))
+			if (name.equals("value")) {
+				entrypoint = (String) value;
+				if (entrypoint.endsWith(".mcfunction"))
+					System.out.println("[Warning] You don't have to specify .mcfunction in @MCJEntrypoint (" + provider.getMethodFunctionsPath() + ")");
+				else
+					entrypoint += ".mcfunction";
+			} else if (name.equals("setup")) {
+				entrypointSetup = (Boolean) value;
+			} else if (name.equals("gc")) {
+				entrypointGC = (Boolean) value;
+			} else {
 				throw new MCJException("Malformed @MCJEntrypoint; unknown argument '" + name + "'");
-			
-			entrypoint = (String) value;
-			if (entrypoint.endsWith(".mcfunction"))
-				System.out.println("[Warning] You don't have to specify .mcfunction in @MCJEntrypoint (" + provider.getMethodFunctionsPath() + ")");
-			else
-				entrypoint += ".mcfunction";
+			}
 		}
 	}
 	
@@ -187,6 +192,8 @@ public class MCJMethodVisitor extends MethodVisitor {
 	private boolean isNativeFound;
 	private String execute;
 	private String entrypoint;
+	private boolean entrypointSetup;
+	private boolean entrypointGC;
 	private final Map<Integer, MCJLabel> labels;
 	private int labelIndex;
 	private MCJLabel curLabel;
@@ -199,6 +206,8 @@ public class MCJMethodVisitor extends MethodVisitor {
 		this.isNativeFound = false;
 		this.execute = null;
 		this.entrypoint = null;
+		this.entrypointSetup = false;
+		this.entrypointGC = false;
 		this.labels = new HashMap<>();
 		this.labelIndex = -1;
 		this.curLabel = null;
@@ -552,9 +561,12 @@ public class MCJMethodVisitor extends MethodVisitor {
 	
 	@Override
 	public void visitMethodInsn(int opcode, String owner, String name, String descriptor, boolean isInterface) {
-		StringBuilder path = new StringBuilder(provider.getNamespace());
-		path.append(':');
-		path.append(MCJUtil.formatClassPath(provider.getChangedClassPath(owner)));
+		if (owner.equals("java/lang/Object") && name.equals("<init>") && descriptor.equals("()V")) {
+			curLabel.println("function mcj:stack/pop");
+			return;
+		}
+		
+		StringBuilder path = new StringBuilder(provider.getTracker().getClassPath(owner));
 		if (name.equals("<init>")) {
 			path.append("/constructor");
 		} else {
@@ -572,10 +584,8 @@ public class MCJMethodVisitor extends MethodVisitor {
 		switch (opcode) { // TODO unordered
 			case Opcodes.INVOKESTATIC -> curLabel.println("function mcj:stack/invokestatic {method:\"" + pathStr + "\",num_args:\"" + numArgs + "\",has_return:\"" + hasReturn + "\"}");
 			case Opcodes.INVOKEVIRTUAL, Opcodes.INVOKESPECIAL, Opcodes.INVOKEINTERFACE -> {
-				if (owner.equals("java/lang/Object") && name.equals("<init>") && descriptor.equals("()V"))
-					curLabel.println("function mcj:stack/pop");
-				else // TODO method resolution doesn't handle superclasses/interfaces
-					curLabel.println("function mcj:stack/invokestatic {method:\"" + pathStr + "\",num_args:\"" + (numArgs + 1) + "\",has_return:\"" + hasReturn + "\"}");
+				// TODO method resolution doesn't handle superclasses/interfaces
+				curLabel.println("function mcj:stack/invokestatic {method:\"" + pathStr + "\",num_args:\"" + (numArgs + 1) + "\",has_return:\"" + hasReturn + "\"}");
 			}
 			default -> throw new MCJException("Unsupported opcode: " + opcode);
 		}
@@ -666,10 +676,11 @@ public class MCJMethodVisitor extends MethodVisitor {
 				try {
 					provider.writeToActualFile(new File(provider.getCompiledFunctions(), "main.mcfunction"), """
 							function mcj:setup
+							data remove storage mcj:data running
 							function mcj:stack/push_const {value:"0"}
 							function mcj:heap/newarray
 							function mcj:stack/invokestatic {method:"$(~MAIN~)",num_args:"1",has_return:"false"}
-							execute unless data storage mcj:data debug run function mcj:heap/free_all
+							data modify storage mcj:data running set value 1b
 							""".replace("$(~MAIN~)", provider.getActualFunctionPath(provider.getMethodFunctionsPath() + "/entry")));
 				} catch (IOException e) {
 					throw new MCJException("Error while creating main.mcfunction", e);
@@ -685,13 +696,29 @@ public class MCJMethodVisitor extends MethodVisitor {
 					args.append(")}\n");
 				}
 				
+				String entrypointPath = provider.getNamespace() + ":" +
+						entrypoint.substring(0, entrypoint.length() - ".mcfunction".length());
+				
 				provider.writeToActualFile(new File(provider.getCompiledFunctions(), entrypoint), """
-						function mcj:setup
+						$(~SETUP~)
+						data modify storage mcj:data executing set value "$(~ENTRYPOINT_PATH~)"
 						$(~ARGS~)function mcj:stack/invokestatic {method:"$(~MAIN~)",num_args:"$(~NUM_ARGS~)",has_return:"$(~HAS_RETURN~)"}
-						execute unless data storage mcj:data debug run function mcj:heap/free_all
-						""".replace("$(~MAIN~)", provider.getActualFunctionPath(provider.getMethodFunctionsPath() + "/entry"))
-						.replace("$(~ARGS~)", args).replace("$(~NUM_ARGS~)", "" + parameters.length)
-						.replace("$(~HAS_RETURN~)", provider.isVoidMethod() ? "false" : "true"));
+						$(~DISABLE_EXEC~)
+						$(~GC~)"""
+						.replace("$(~SETUP~)", entrypointSetup ? "function mcj:setup" :
+							"execute unless data storage mcj:data running run return run tellraw @a {\"text\":\"Failed to run entrypoint '" +
+								entrypointPath + "' due to Minecraft JVM being halted. Use /function mcj:setup to reset.\",\"color\":\"red\"}\n" +
+							"data modify storage mcj:data intstack append value {}\n" +
+							"execute if data storage mcj:data executing run data modify storage mcj:data intstack[-1].executing set value 1b")
+						.replace("$(~ENTRYPOINT_PATH~)", entrypointPath)
+						.replace("$(~ARGS~)", args)
+						.replace("$(~MAIN~)", provider.getActualFunctionPath(provider.getMethodFunctionsPath() + "/entry"))
+						.replace("$(~NUM_ARGS~)", "" + parameters.length)
+						.replace("$(~HAS_RETURN~)", provider.isVoidMethod() ? "false" : "true")
+						.replace("$(~DISABLE_EXEC~)", entrypointSetup ? "data remove storage mcj:data executing" :
+							"execute unless data storage mcj:data intstack[-1].executing run data remove storage mcj:data executing\n" +
+							"function mcj:intstack/pop")
+						.replace("$(~GC~)", entrypointGC ? "execute unless data storage mcj:data debug run function mcj:heap/free_all" : ""));
 			}
 		} catch (IOException e) {
 			throw new MCJException("Error saving method to files", e);

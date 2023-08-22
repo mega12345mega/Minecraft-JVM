@@ -1,5 +1,6 @@
 package com.luneruniverse.minecraft.mcj.api;
 
+@MCJImplFor("mcj:")
 public class Dimension {
 	
 	private final String name;

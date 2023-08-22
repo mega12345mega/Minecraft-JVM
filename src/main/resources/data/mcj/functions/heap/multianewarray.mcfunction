@@ -16,7 +16,7 @@ execute store result storage mcj:data stack[-1].value int 1 run scoreboard playe
 # args.numDimensions = numDimensions
 $data modify storage mcj:data stack append value {value:$(numDimensions)}
 
-function mcj:stack/invokestatic {method:"mcj:class_bytecodeimpl/method_multianewarray_45404207ff194d8bb2af377a0d20a5a3/entry",num_args:"3",has_return:"true"}
+function mcj:stack/invokestatic {method:"$(class~mcj:BytecodeImpl~multianewarray(III)Ljava/lang/Object;)",num_args:"3",has_return:"true"}
 
 $scoreboard players set math_a mcj_data $(numDimensions)
 function mcj:heap/_multianewarray with storage mcj:data intstack[-1]

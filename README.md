@@ -9,6 +9,9 @@ Compile Java into a Minecraft datapack
 5. Launch 23w31a or later (macros are not yet in a release, and they are used extensively to make this possible)
 6. Use `/reload` and `/function namespace:main`
 
+Use `@MCJEntrypoint` to provide and customize additional entrypoints instead of just `namespace:main`<br>
+Use the `EventManager` to call code when something happens, like a server tick
+
 ## Limitations
 * Some bytecode instructions are only partially or not at all implemented, so these things aren't currently possible:
   * static fields

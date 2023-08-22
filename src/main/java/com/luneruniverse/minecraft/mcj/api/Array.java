@@ -1,15 +1,15 @@
 package com.luneruniverse.minecraft.mcj.api;
 
-import java.util.Collection;
-import java.util.List;
 import java.util.ListIterator;
 
 /**
  * This wraps Minecraft's array, allowing for dynamic sizes
  * @param <T> The array's component type
  */
-public class Array<T> implements List<T> {
+@MCJImplFor("mcj:")
+public class Array<T> {
 	
+	@MCJImplFor("mcj:")
 	public static class ArrayIterator<T> implements ListIterator<T> {
 		private final Array<T> list;
 		private int index;
@@ -88,10 +88,8 @@ public class Array<T> implements List<T> {
 			# pointer_handler
 			$execute store result storage mcj:data stack[-1].value int 1 run data get storage mcj:data heap.v$(value).value
 			"""})
-	@Override
 	public native int size();
 	
-	@Override
 	public boolean isEmpty() {
 		return size() == 0;
 	}
@@ -105,13 +103,11 @@ public class Array<T> implements List<T> {
 			# pointer_handler
 			$execute store result storage mcj:data stack[-1].value int 1 run execute if data storage mcj:data heap.v$(value).value[{value:$(o)}]
 			"""})
-	@Override
 	public native boolean contains(Object o);
 	
 	/**
 	 * Equivalent to {@link #listIterator()}
 	 */
-	@Override
 	public ArrayIterator<T> iterator() {
 		return new ArrayIterator<>(this, 0);
 	}
@@ -130,18 +126,7 @@ public class Array<T> implements List<T> {
 			# pointer_handler
 			$data modify storage mcj:data heap.v$(value).value set from storage mcj:data heap.v$(values).value
 			"""})
-	@Override
 	public native T[] toArray();
-	
-	/**
-	 * Use {@link #toArray()} instead
-	 */
-	@SuppressWarnings("unchecked")
-	@Deprecated
-	@Override
-	public <T2> T2[] toArray(T2[] a) {
-		return (T2[]) values;
-	}
 	
 	@MCJNativeImpl({"""
 			function mcj:localvars/push_var_to_stack {index:"0"}
@@ -153,7 +138,6 @@ public class Array<T> implements List<T> {
 			# pointer_handler
 			$data modify storage mcj:data heap.v$(value).value append value {value:$(e)}
 			"""})
-	@Override
 	public native boolean add(T e);
 	
 	@MCJNativeImpl({"""
@@ -165,51 +149,49 @@ public class Array<T> implements List<T> {
 			# pointer_handler
 			$execute store success storage mcj:data stack[-1].value int 1 run data remove storage mcj:data heap.v$(value).value[{value:$(o)}]
 			"""})
-	@Override
 	public native boolean remove(Object o);
 	
-	@Override
-	public boolean containsAll(Collection<?> c) {
-		for (Object o : c) {
-			if (!contains(o))
+	public boolean containsAll(Array<?> array) {
+		int size = array.size();
+		for (int i = 0; i < size; i++) {
+			if (!contains(array.get(size)))
 				return false;
 		}
 		return true;
 	}
 	
-	@Override
-	public boolean addAll(Collection<? extends T> c) {
-		for (T e : c) {
-			add(e);
+	public boolean addAll(Array<? extends T> array) {
+		int size = array.size();
+		for (int i = 0; i < size; i++) {
+			add(array.get(i));
 		}
-		return c.size() > 0;
+		return size > 0;
 	}
 	
-	@Override
-	public boolean addAll(int index, Collection<? extends T> c) {
-		for (T e : c) {
-			add(index, e);
+	public boolean addAll(int index, Array<? extends T> array) {
+		int size = array.size();
+		for (int i = 0; i < size; i++) {
+			add(index, array.get(i));
 			index++;
 		}
-		return c.size() > 0;
+		return size > 0;
 	}
 	
-	@Override
-	public boolean removeAll(Collection<?> c) {
+	public boolean removeAll(Array<?> array) {
 		boolean changed = false;
-		for (Object o : c) {
-			if (remove(o))
+		int size = array.size();
+		for (int i = 0; i < size; i++) {
+			if (remove(array.get(i)))
 				changed = true;
 		}
 		return changed;
 	}
 	
-	@Override
-	public boolean retainAll(Collection<?> c) {
+	public boolean retainAll(Array<?> array) {
 		boolean changed = false;
 		ArrayIterator<T> i = iterator();
 		while (i.hasNext()) {
-			if (!c.contains(i.next())) {
+			if (!array.contains(i.next())) {
 				i.remove();
 				changed = true;
 			}
@@ -225,7 +207,6 @@ public class Array<T> implements List<T> {
 			# pointer_handler
 			$data modify storage mcj:data heap.v$(value).value set value []
 			"""})
-	@Override
 	public native void clear();
 	
 	@MCJNativeImpl({"""
@@ -237,7 +218,6 @@ public class Array<T> implements List<T> {
 			# pointer_handler
 			$data modify storage mcj:data stack[-1] set from storage mcj:data heap.v$(value).value[$(index)]
 			"""})
-	@Override
 	public native T get(int index);
 	
 	@MCJNativeImpl({"""
@@ -250,7 +230,6 @@ public class Array<T> implements List<T> {
 		$data modify storage mcj:data stack[-1] set from storage mcj:data heap.v$(value).value[$(index)]
 		$data modify storage mcj:data heap.v$(value).value[$(index)].value set from storage mcj:data localvars.v2.value
 		"""})
-	@Override
 	public native T set(int index, T element);
 	
 	@MCJNativeImpl({"""
@@ -263,7 +242,6 @@ public class Array<T> implements List<T> {
 		# pointer_handler
 		$data modify storage mcj:data heap.v$(value).value insert $(index) value {value:$(element)}
 		"""})
-	@Override
 	public native void add(int index, T element);
 	
 	@MCJNativeImpl({"""
@@ -276,10 +254,8 @@ public class Array<T> implements List<T> {
 		$data modify storage mcj:data stack[-1] set from storage mcj:data heap.v$(value).value[$(index)]
 		$data remove storage mcj:data heap.v$(value).value[$(index)]
 		"""})
-	@Override
 	public native T remove(int index);
 	
-	@Override
 	public int indexOf(Object o) {
 		int len = size();
 		for (int i = 0; i < len; i++) {
@@ -289,7 +265,6 @@ public class Array<T> implements List<T> {
 		return -1;
 	}
 	
-	@Override
 	public int lastIndexOf(Object o) {
 		for (int i = size() - 1; i >= 0; i--) {
 			if (get(i) == o)
@@ -301,17 +276,14 @@ public class Array<T> implements List<T> {
 	/**
 	 * Equivalent to {@link #iterator()}
 	 */
-	@Override
 	public ArrayIterator<T> listIterator() {
 		return new ArrayIterator<>(this, 0);
 	}
 	
-	@Override
 	public ArrayIterator<T> listIterator(int index) {
 		return new ArrayIterator<>(this, index);
 	}
 	
-	@Override
 	public Array<T> subList(int fromIndex, int toIndex) {
 		Array<T> output = new Array<>();
 		copySubList(output, fromIndex, toIndex);

@@ -104,78 +104,9 @@ public class MCJNativeImplAnnotationVisitor extends AnnotationVisitor {
 		}
 		
 		values.forEach((fileName, fileContents) -> {
-			List<Map.Entry<Integer, Integer>> pathRanges = new ArrayList<>();
-			int pathStart = -1;
-			int parenCount = 0;
-			for (int i = 0; i < fileContents.length(); i++) {
-				char c = fileContents.charAt(i);
-				if (c == '$') {
-					pathStart = i;
-					parenCount = 0;
-				} else if (c != '(' && pathStart == i - 1)
-					pathStart = -1;
-				else if (pathStart != -1) {
-					if (c == '(')
-						parenCount++;
-					else if (c == ')') {
-						parenCount--;
-						if (parenCount == 0) {
-							pathRanges.add(Map.entry(pathStart, i + 1));
-							pathStart = -1;
-						}
-					}
-				}
-			}
-			
-			for (int i = pathRanges.size() - 1; i >= 0; i--) {
-				Map.Entry<Integer, Integer> range = pathRanges.get(i);
-				String path = fileContents.substring(range.getKey() + "$(".length(), range.getValue() - ")".length());
-				String replacement;
-				if (path.startsWith("method~")) {
-					path = path.substring("method~".length());
-					
-					int descStart = path.indexOf('(');
-					if (descStart == -1)
-						continue;
-					int descEnd = path.indexOf(')');
-					if (descEnd == -1 || descEnd + 1 == path.length())
-						continue;
-					if (path.charAt(descEnd + 1) == 'L') {
-						descEnd = path.indexOf(';', descEnd);
-						if (descEnd == -1)
-							continue;
-					} else
-						descEnd++;
-					descEnd++;
-					
-					StringBuilder fullPath = new StringBuilder(provider.getClassFunctionsPath());
-					fullPath.append('/');
-					String name = path.substring(0, descStart);
-					if (name.equals("<init>"))
-						fullPath.append("constructor");
-					else {
-						fullPath.append("method_");
-						fullPath.append(name.toLowerCase());
-					}
-					fullPath.append('_');
-					fullPath.append(MCJUtil.md5(path.substring(0, descEnd)));
-					if (descEnd == path.length())
-						fullPath.append("/entry");
-					else if (path.charAt(descEnd) != '/')
-						continue;
-					else
-						fullPath.append(path.substring(descEnd));
-					
-					replacement = provider.getActualFunctionPath(fullPath.toString());
-				} else if (path.startsWith("~"))
-					replacement = provider.getActualFunctionPath(provider.getMethodFunctionsPath() + "/" + path.substring(1));
-				else
-					continue;
-				fileContents = fileContents.substring(0, range.getKey()) + replacement + fileContents.substring(range.getValue());
-			}
-			
 			try {
-				provider.writeToFile(new File(provider.getMethodFunctions(), fileName + ".mcfunction"), fileContents);
+				provider.writeToFile(new File(provider.getMethodFunctions(), fileName + ".mcfunction"),
+						MCJUtil.processNativeFile(provider, fileContents));
 			} catch (IOException e) {
 				throw new MCJException("Error writing a native file", e);
 			}

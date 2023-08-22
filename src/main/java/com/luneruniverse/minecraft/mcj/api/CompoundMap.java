@@ -7,6 +7,7 @@ package com.luneruniverse.minecraft.mcj.api;
  * @param <K> The key type
  * @param <V> The value type
  */
+@MCJImplFor("mcj:")
 public class CompoundMap<K, V> {
 	
 	public CompoundMap() {

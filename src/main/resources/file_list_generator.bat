@@ -1,0 +1,1 @@
+powershell.exe "Get-ChildItem -File -Recurse -Exclude file_list_generator.bat,mcj_datapack.txt . | Resolve-Path -Relative" > mcj_datapack.txt

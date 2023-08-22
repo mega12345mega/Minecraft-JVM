@@ -23,6 +23,8 @@ public @interface MCJNativeImpl {
 	 * where <code>&lt;name&gt;</code> is supplied as a comment on the first line of the value<br>
 	 * <code>$(~&lt;name&gt;)</code> will be replaced with the path to the function<br>
 	 * <code>$(method~&lt;method_name&gt;&lt;descriptor&gt;[/&lt;name&gt;])</code> allows you to target a different method<br>
+	 * <code>$(class~package/Class$Nested~&lt;method_name&gt;&lt;descriptor&gt;[/&lt;name&gt;])</code>
+	 * allows you to target a different class<br>
 	 * Example:<br>
 	 * <code><pre>
 	 * @MCJNativeImpl({"""
@@ -30,6 +32,7 @@ public @interface MCJNativeImpl {
 	 * 		function $(~helper)
 	 * 		function $(method~&lt;init&gt;(I)V)
 	 * 		function $(method~toString()Ljava/lang/String;/helper2)
+	 * 		function $(class~java/lang/StringBuilder~append(Ljava/lang/String;)Ljava/lang/StringBuilder;)
 	 * 		""", """
 	 * 		# helper
 	 * 		say bar
@@ -47,6 +50,8 @@ public @interface MCJNativeImpl {
 	 * Files will be resolved relative to the .jar passed into {@link MCJ#MCJ(File, String)}<br>
 	 * <code>$(~&lt;name&gt;)</code> will be replaced with the path to the function<br>
 	 * <code>$(method~&lt;method_name&gt;&lt;descriptor&gt;[/&lt;name&gt;])</code> allows you to target a different method<br>
+	 * <code>$(class~package/Class$Nested~&lt;method_name&gt;&lt;descriptor&gt;[/&lt;name&gt;])</code>
+	 * allows you to target a different class<br>
 	 * @return A list of files
 	 * @see #value()
 	 */

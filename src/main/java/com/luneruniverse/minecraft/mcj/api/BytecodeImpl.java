@@ -5,7 +5,6 @@ package com.luneruniverse.minecraft.mcj.api;
  * <strong>Warning:</strong> This is NOT designed to be used directly,
  * and relies on the behavior of some mcfunctions in the mcj namespace <strong>(very internal stuff)</strong>
  */
-@MCJExpandPath
 @MCJImplFor("mcj:BytecodeImpl")
 class BytecodeImpl {
 	

@@ -11,15 +11,13 @@ public class MCJPathProvider {
 		private final File classFunctions;
 		private final String classFunctionsPath;
 		private final String className;
-		private final String originalClassName;
 		private final boolean isMainClass;
 		public ClassPathProvider(MCJPathProvider mainProvider, File classFunctions, String classFunctionsPath,
-				String className, String originalClassName, boolean isMainClass) {
+				String className, boolean isMainClass) {
 			super(mainProvider);
 			this.classFunctions = classFunctions;
 			this.classFunctionsPath = classFunctionsPath;
 			this.className = className;
-			this.originalClassName = originalClassName;
 			this.isMainClass = isMainClass;
 		}
 		protected ClassPathProvider(ClassPathProvider provider) {
@@ -27,7 +25,6 @@ public class MCJPathProvider {
 			this.classFunctions = provider.classFunctions;
 			this.classFunctionsPath = provider.classFunctionsPath;
 			this.className = provider.className;
-			this.originalClassName = provider.originalClassName;
 			this.isMainClass = provider.isMainClass;
 		}
 		public File getClassFunctions() {
@@ -39,29 +36,16 @@ public class MCJPathProvider {
 		public String getClassName() {
 			return className;
 		}
-		public String getOriginalClassName() {
-			return originalClassName;
-		}
 		public boolean isMainClass() {
 			return isMainClass;
 		}
 		@Override
 		public ClassPathProvider changeNamespace(String namespace) {
 			return new ClassPathProvider(super.changeNamespace(namespace),
-					classFunctions, classFunctionsPath, className, originalClassName, isMainClass);
-		}
-		@Override
-		public ClassPathProvider changeExpandedPaths(boolean expandedPaths) {
-			return new ClassPathProvider(super.changeExpandedPaths(expandedPaths),
-					classFunctions, classFunctionsPath, className, originalClassName, isMainClass);
+					classFunctions, classFunctionsPath, className, isMainClass);
 		}
 		public ClassPathProvider changeClassPath(File classFunctions, String classFunctionsPath, String className) {
-			return new ClassPathProvider(this, classFunctions, classFunctionsPath, className, originalClassName, isMainClass);
-		}
-		public String getChangedClassPath(String path) {
-			if (!originalClassName.equals(path))
-				return path;
-			return className;
+			return new ClassPathProvider(this, classFunctions, classFunctionsPath, className, isMainClass);
 		}
 	}
 	
@@ -111,11 +95,6 @@ public class MCJPathProvider {
 					methodFunctions, methodFunctionsPath, paramCount, isMainMethod, isStaticMethod, isNativeMethod, isVoidMethod);
 		}
 		@Override
-		public MethodPathProvider changeExpandedPaths(boolean expandedPaths) {
-			return new MethodPathProvider(super.changeExpandedPaths(expandedPaths),
-					methodFunctions, methodFunctionsPath, paramCount, isMainMethod, isStaticMethod, isNativeMethod, isVoidMethod);
-		}
-		@Override
 		public MethodPathProvider changeClassPath(File classFunctions, String classFunctionsPath, String className) {
 			return new MethodPathProvider(super.changeClassPath(classFunctions, classFunctionsPath, className),
 					new File(classFunctions, methodFunctions.getName()),
@@ -129,6 +108,7 @@ public class MCJPathProvider {
 	private final String namespace;
 	private final String mainClass; // package/Class$Nested
 	private final boolean expandedPaths;
+	private final ImplForTracker tracker;
 	
 	private final File data;
 	private final File mcjData;
@@ -136,11 +116,12 @@ public class MCJPathProvider {
 	private final File compiledData;
 	private final File compiledFunctions;
 	
-	public MCJPathProvider(File datapack, String namespace, String mainClass, boolean expandedPaths) {
+	public MCJPathProvider(File datapack, String namespace, String mainClass, boolean expandedPaths, ImplForTracker tracker) {
 		this.datapack = datapack;
 		this.namespace = namespace;
 		this.mainClass = mainClass;
 		this.expandedPaths = expandedPaths;
+		this.tracker = tracker;
 		
 		this.data = new File(datapack, "data");
 		this.mcjData = new File(data, "mcj");
@@ -153,6 +134,7 @@ public class MCJPathProvider {
 		this.namespace = provider.namespace;
 		this.mainClass = provider.mainClass;
 		this.expandedPaths = provider.expandedPaths;
+		this.tracker = provider.tracker;
 		
 		this.data = provider.data;
 		this.mcjData = provider.mcjData;
@@ -173,6 +155,9 @@ public class MCJPathProvider {
 	public boolean isExpandedPaths() {
 		return expandedPaths;
 	}
+	public ImplForTracker getTracker() {
+		return tracker;
+	}
 	
 	public File getData() {
 		return data;
@@ -191,10 +176,7 @@ public class MCJPathProvider {
 	}
 	
 	public MCJPathProvider changeNamespace(String namespace) {
-		return new MCJPathProvider(datapack, namespace, mainClass, expandedPaths);
-	}
-	public MCJPathProvider changeExpandedPaths(boolean expandedPaths) {
-		return new MCJPathProvider(datapack, namespace, mainClass, expandedPaths);
+		return new MCJPathProvider(datapack, namespace, mainClass, expandedPaths, tracker);
 	}
 	
 	public void writeToActualFile(File file, CharSequence contents) throws IOException {
@@ -202,11 +184,14 @@ public class MCJPathProvider {
 		Files.writeString(file.toPath(), contents);
 	}
 	public void writeToFile(File file, CharSequence contents) throws IOException {
+		Path datapackRelPath = datapack.toPath().relativize(file.toPath());
+		
 		Path path;
-		if (expandedPaths) {
+		if (tracker.isExpanded(datapackRelPath.getName(1).toString() + ":" +
+				datapackRelPath.subpath(3, datapackRelPath.getNameCount() - 2).toString()
+				.replace(datapackRelPath.getFileSystem().getSeparator(), "/"))) {
 			path = file.toPath();
 		} else {
-			Path datapackRelPath = datapack.toPath().relativize(file.toPath());
 			Path datapackRelFunctions = datapackRelPath.subpath(0, 3);
 			Path functionsRelPath = datapackRelPath.subpath(3, datapackRelPath.getNameCount());
 			String functionsRelPathStr = functionsRelPath.toString();
@@ -216,11 +201,12 @@ public class MCJPathProvider {
 			
 			contents = "# " + functionsRelPathStr + "\n" + contents;
 		}
+		
 		Files.createDirectories(path.getParent());
 		Files.writeString(path, contents);
 	}
 	public String getActualFunctionPath(String path) {
-		if (expandedPaths)
+		if (tracker.isExpanded(path.substring(0, path.lastIndexOf('/', path.lastIndexOf('/') - 1))))
 			return path;
 		int i = path.indexOf(':') + 1;
 		return path.substring(0, i) + MCJUtil.md5(path.substring(i));

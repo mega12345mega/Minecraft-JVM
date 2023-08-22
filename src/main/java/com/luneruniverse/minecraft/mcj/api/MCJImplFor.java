@@ -6,9 +6,7 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
 /**
- * Change the namespace, package, and class name of the compiled class (used internally)<br>
- * <strong>Warning:</strong> this does NOT apply this change to anything referring to the class,
- * unless the thing referring to the class is within this class
+ * Change the namespace, package, or class name of the compiled class
  */
 @Target(ElementType.TYPE)
 @Retention(RetentionPolicy.CLASS)

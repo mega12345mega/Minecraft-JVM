@@ -7,7 +7,7 @@ import com.luneruniverse.minecraft.mcj.api.MCJNativeImpl;
  * This allows for string concatenation via str1 + str2<br>
  * <strong>Warning:</strong> This is NOT designed to be used directly, and only supports {@link #append(String)}
  */
-@MCJImplFor("java/lang/StringBuilder")
+@MCJImplFor("mcj:java/lang/StringBuilder")
 public class StringBuilder {
 	
 	private String value;

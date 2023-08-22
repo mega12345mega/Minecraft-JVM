@@ -6,6 +6,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.util.HashSet;
 import java.util.Set;
+import java.util.function.BiConsumer;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
@@ -86,8 +87,6 @@ public class MCJ {
 				}
 				""");
 		
-		copyMCJDatapackTo(datapack);
-		
 		String mainClass = null;
 		try (ZipInputStream zipIn = new ZipInputStream(new FileInputStream(jar))) {
 			ZipEntry entry;
@@ -108,34 +107,48 @@ public class MCJ {
 			throw new MCJException("Missing META-INF/MANIFEST.MF with Main-Class");
 		}
 		
-		MCJPathProvider provider = new MCJPathProvider(datapack, namespace, mainClass, expandedPaths);
+		MCJPathProvider provider = new MCJPathProvider(datapack, namespace, mainClass, expandedPaths, new ImplForTracker());
 		
+		processJar((in, entry) -> {
+			try {
+				new ClassReader(in).accept(new MCJClassInitVisitor(provider), 0);
+			} catch (Exception e) {
+				throw new MCJException("Error initializing class '" + entry.getName() + "'", e);
+			}
+		});
+		
+		// Refers to information from the MCJClassInitVisitor
+		copyMCJDatapackTo(provider);
+		
+		processJar((in, entry) -> {
+			try {
+				new ClassReader(in).accept(new MCJClassVisitor(provider), 0);
+			} catch (Exception e) {
+				throw new MCJException("Error compiling class '" + entry.getName() + "'", e);
+			}
+		});
+	}
+	private void processJar(BiConsumer<ZipInputStream, ZipEntry> classProcessor) throws IOException {
 		try (ZipInputStream zipIn = new ZipInputStream(new FileInputStream(jar))) {
 			ZipEntry entry;
 			while ((entry = zipIn.getNextEntry()) != null) {
 				if (!entry.isDirectory()) {
 					String name = new File(entry.getName()).getName();
 					if (name.endsWith(".class") && !name.equals("module-info.class") && !name.equals("package-info.class"))
-						compileClass(new ClassReader(zipIn), provider, entry.getName());
+						classProcessor.accept(zipIn, entry);
 				}
 			}
 		}
 	}
-	private void compileClass(ClassReader reader, MCJPathProvider provider, String name) {
-		try {
-			reader.accept(new MCJClassVisitor(provider), 0);
-		} catch (MCJException e) {
-			throw new MCJException("Error compiling class '" + name + "'", e);
-		}
-	}
 	
-	private void copyMCJDatapackTo(File datapack) throws IOException {
+	private void copyMCJDatapackTo(MCJPathProvider provider) throws IOException {
 		for (String path : new String(MCJ.class.getResourceAsStream("/mcj_datapack.txt").readAllBytes())
 				.replace("\r", "").split("\n")) {
 			path = path.substring(2).replace('\\', '/');
-			File file = new File(datapack, path);
+			File file = new File(provider.getDatapack(), path);
 			Files.createDirectories(file.getAbsoluteFile().getParentFile().toPath());
-			Files.write(file.toPath(), MCJ.class.getResourceAsStream("/" + path).readAllBytes());
+			Files.writeString(file.toPath(),
+					MCJUtil.processNativeFile(provider, new String(MCJ.class.getResourceAsStream("/" + path).readAllBytes())));
 		}
 	}
 	

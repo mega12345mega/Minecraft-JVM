@@ -6,9 +6,7 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
 /**
- * Expands paths regardless of the '-expandedPaths' flag (used internally)<br>
- * <strong>Warning:</strong> this does NOT apply this change to anything referring to the class,
- * unless the thing referring to the class is within this class
+ * Expands paths for this class regardless of the '-expandedPaths' flag
  */
 @Target(ElementType.TYPE)
 @Retention(RetentionPolicy.CLASS)

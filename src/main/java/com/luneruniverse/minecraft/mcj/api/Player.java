@@ -1,5 +1,6 @@
 package com.luneruniverse.minecraft.mcj.api;
 
+@MCJImplFor("mcj:")
 public class Player {
 	
 //	private static final CompoundMap<String, Player> players = new CompoundMap<>();
