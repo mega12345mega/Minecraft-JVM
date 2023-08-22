@@ -7,6 +7,7 @@ import java.nio.file.Files;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.function.BiConsumer;
+import java.util.function.Consumer;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
@@ -23,16 +24,19 @@ public class MCJ {
 			System.out.println("Usage: java -jar MCJ.jar file/to/compile.jar path/to/world/datapacks/datapack namespace [-delete]");
 			return;
 		}
+		
 		File jar = new File(args[0]);
 		if (!jar.exists()) {
 			System.out.println("Unable to find file: " + jar.getAbsolutePath());
 			return;
 		}
+		
 		File datapack = new File(args[1]).getAbsoluteFile();
 		if (!datapack.getParentFile().exists()) {
 			System.out.println("Unable to find datapacks folder: " + datapack.getParentFile().getAbsolutePath());
 			return;
 		}
+		
 		String namespace = args[2];
 		if (!namespace.equals(namespace.toLowerCase())) {
 			System.out.println("Namespaces must be lowercase");
@@ -42,6 +46,7 @@ public class MCJ {
 			System.out.println("The namespace cannot be 'mcj', since this conflicts with part of the native API");
 			return;
 		}
+		
 		Set<String> flags = new HashSet<>();
 		for (int i = 3; i < args.length; i++) {
 			flags.add(args[i].toLowerCase());
@@ -50,7 +55,12 @@ public class MCJ {
 			deleteFile(datapack);
 		}
 		boolean expandedPaths = flags.contains("-expandedpaths");
-		new MCJ(jar, namespace, expandedPaths).compileTo(datapack);
+		boolean sysout = flags.contains("-sysout");
+		
+		new MCJ(jar, namespace, expandedPaths).compileTo(datapack, line -> {
+			if (sysout)
+				System.out.println(line);
+		});
 	}
 	private static void deleteFile(File file) throws IOException {
 		if (file.isDirectory()) {
@@ -71,7 +81,10 @@ public class MCJ {
 		this.expandedPaths = expandedPaths;
 	}
 	
-	public void compileTo(File datapack) throws IOException {
+	public void compileTo(File datapack, Consumer<String> logger) throws IOException {
+		logger.accept("Compiling " + jar.getAbsolutePath() + " -> " + datapack.getAbsolutePath());
+		long startTime = System.currentTimeMillis();
+		
 		Files.createDirectory(datapack.toPath());
 		File functions = new File(datapack, "data/" + namespace + "/functions");
 		Files.createDirectories(functions.toPath());
@@ -87,6 +100,7 @@ public class MCJ {
 				}
 				""");
 		
+		logger.accept("Initializing: Finding META-INF/MANIFEST.MF");
 		String mainClass = null;
 		try (ZipInputStream zipIn = new ZipInputStream(new FileInputStream(jar))) {
 			ZipEntry entry;
@@ -107,26 +121,37 @@ public class MCJ {
 			throw new MCJException("Missing META-INF/MANIFEST.MF with Main-Class");
 		}
 		
-		MCJPathProvider provider = new MCJPathProvider(datapack, namespace, mainClass, expandedPaths, new ImplForTracker());
+		MCJPathProvider provider = new MCJPathProvider(datapack, namespace, mainClass, expandedPaths, new ImplForTracker(), new InheritanceTracker());
+		Set<String> ignoredEntries = new HashSet<>();
 		
+		logger.accept("Initializing: Loading class information");
 		processJar((in, entry) -> {
 			try {
-				new ClassReader(in).accept(new MCJClassInitVisitor(provider), 0);
+				new ClassReader(in).accept(new MCJClassInitVisitor(provider, () -> ignoredEntries.add(entry.getName())), 0);
 			} catch (Exception e) {
 				throw new MCJException("Error initializing class '" + entry.getName() + "'", e);
 			}
 		});
+		provider.getInheritanceTracker().link();
 		
 		// Refers to information from the MCJClassInitVisitor
+		logger.accept("Compiling: Copying in the default MCJ data");
 		copyMCJDatapackTo(provider);
 		
+		logger.accept("Compiling: Provided .jar");
 		processJar((in, entry) -> {
+			if (ignoredEntries.contains(entry.getName()))
+				return;
 			try {
+				logger.accept(" - " + entry.getName());
 				new ClassReader(in).accept(new MCJClassVisitor(provider), 0);
 			} catch (Exception e) {
 				throw new MCJException("Error compiling class '" + entry.getName() + "'", e);
 			}
 		});
+		
+		long endTime = System.currentTimeMillis();
+		logger.accept("Completed: " + (endTime - startTime) + "ms");
 	}
 	private void processJar(BiConsumer<ZipInputStream, ZipEntry> classProcessor) throws IOException {
 		try (ZipInputStream zipIn = new ZipInputStream(new FileInputStream(jar))) {

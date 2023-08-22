@@ -2,8 +2,10 @@ package com.luneruniverse.minecraft.mcj.test;
 
 import com.luneruniverse.minecraft.mcj.api.Array;
 import com.luneruniverse.minecraft.mcj.api.IterableMap;
+import com.luneruniverse.minecraft.mcj.api.MCJImplFor;
 import com.luneruniverse.minecraft.mcj.api.MinecraftServer;
 
+@MCJImplFor("arrays_and_maps:")
 public class ArraysAndMaps {
 	
 	public static void main(String[] args) {

@@ -3,21 +3,28 @@ package com.luneruniverse.minecraft.mcj;
 import java.io.File;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.function.UnaryOperator;
 
 public class ImplForTracker {
 	
+	private static record FullPath(String namespace, String path, String formatted) {
+		public FullPath(String namespace, String name) {
+			this(namespace, name, namespace + ":" + MCJUtil.formatClassPath(name));
+		}
+	}
+	
 	/**
-	 * package/Class$Nested -> namespace:package_package/class_class/class_nested
+	 * package/Class$Nested -> FullPath
 	 */
-	private final Map<String, String> pathToFullPath;
+	private final Map<String, FullPath> pathToFullPath;
 	/**
 	 * namespace:package_package/class_class/class_nested -> true/false
 	 */
-	private final Map<String, Boolean> fullPathToIsExpanded;
+	private final Map<String, Boolean> formattedToIsExpanded;
 	
 	public ImplForTracker() {
 		pathToFullPath = new HashMap<>();
-		fullPathToIsExpanded = new HashMap<>();
+		formattedToIsExpanded = new HashMap<>();
 	}
 	
 	/**
@@ -26,13 +33,13 @@ public class ImplForTracker {
 	 * @param newPath package/Class$Nested
 	 */
 	public void track(String path, String namespace, String newPath, boolean isExpanded) {
-		String fullPath = namespace + ":" + MCJUtil.formatClassPath(newPath);
+		FullPath fullPath = new FullPath(namespace, newPath);
 		if (pathToFullPath.put(path, fullPath) != null)
 			throw new MCJException("Duplicate implementation: " + path);
 		if (!path.equals(newPath) && pathToFullPath.put(newPath, fullPath) != null)
 			throw new MCJException("Duplicate implementation: " + newPath);
-		if (fullPathToIsExpanded.put(fullPath, isExpanded) != null)
-			throw new MCJException("Duplicate implementation: " + fullPath);
+		if (formattedToIsExpanded.put(fullPath.formatted(), isExpanded) != null)
+			throw new MCJException("Duplicate implementation: " + fullPath.formatted());
 	}
 	
 	/**
@@ -40,10 +47,10 @@ public class ImplForTracker {
 	 * @return namespace:package_package/class_class/class_nested
 	 */
 	public String getClassPath(String path) {
-		String output = pathToFullPath.get(path);
+		FullPath output = pathToFullPath.get(path);
 		if (output == null)
 			throw new MCJException("Missing implementation for '" + path + "'");
-		return output;
+		return output.formatted();
 	}
 	
 	/**
@@ -57,11 +64,23 @@ public class ImplForTracker {
 	}
 	
 	/**
+	 * @param path package/Class$Nested
+	 * @param pathTransformer package/Class$Nested -> package/Class$Nested
+	 * @return namespace:package_package/class_class/class_nested
+	 */
+	public String getClassPath(String path, UnaryOperator<String> pathTransformer) {
+		FullPath output = pathToFullPath.get(path);
+		if (output == null)
+			throw new MCJException("Missing implementation for '" + path + "'");
+		return output.namespace() + ":" + MCJUtil.formatClassPath(pathTransformer.apply(output.path()));
+	}
+	
+	/**
 	 * @param classPath namespace:package_package/class_class/class_nested
 	 * @return If the class is using expanded paths
 	 */
 	public boolean isExpanded(String classPath) {
-		return fullPathToIsExpanded.get(classPath);
+		return formattedToIsExpanded.get(classPath);
 	}
 	
 }

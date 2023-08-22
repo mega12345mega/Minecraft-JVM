@@ -1,7 +1,9 @@
 package com.luneruniverse.minecraft.mcj.test;
 
+import com.luneruniverse.minecraft.mcj.api.MCJImplFor;
 import com.luneruniverse.minecraft.mcj.api.MinecraftServer;
 
+@MCJImplFor("hello_world:")
 public class HelloWorld {
 	
 	public static void main(String[] args) {

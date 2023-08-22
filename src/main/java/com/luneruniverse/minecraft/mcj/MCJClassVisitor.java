@@ -9,7 +9,6 @@ import org.objectweb.asm.Opcodes;
 
 import com.luneruniverse.minecraft.mcj.MCJPathProvider.ClassPathProvider;
 import com.luneruniverse.minecraft.mcj.MCJPathProvider.MethodPathProvider;
-import com.luneruniverse.minecraft.mcj.api.MCJIgnore;
 import com.luneruniverse.minecraft.mcj.api.MCJImplFor;
 
 public class MCJClassVisitor extends ClassVisitor {
@@ -42,7 +41,6 @@ public class MCJClassVisitor extends ClassVisitor {
 	
 	private MCJPathProvider mainProvider;
 	private ClassPathProvider classProvider;
-	private boolean isIgnored;
 	
 	public MCJClassVisitor(MCJPathProvider mainProvider) {
 		super(Opcodes.ASM9);
@@ -50,13 +48,6 @@ public class MCJClassVisitor extends ClassVisitor {
 	}
 	
 	private void init(String name) {
-		String thePackage = name.substring(0, name.lastIndexOf('/') + 1);
-		if (thePackage.equals("com/luneruniverse/minecraft/mcj/") || // Compile com.luneruniverse.minecraft.mcj.api
-				thePackage.startsWith("org/objectweb/asm/")) {
-			isIgnored = true;
-			return;
-		}
-		
 		String path = MCJUtil.formatClassPath(name);
 		
 		MCJPathProvider provider = (classProvider == null ? mainProvider : classProvider);
@@ -74,8 +65,6 @@ public class MCJClassVisitor extends ClassVisitor {
 	
 	@Override
 	public AnnotationVisitor visitAnnotation(String descriptor, boolean visible) {
-		if (descriptor.equals(MCJIgnore.class.descriptorString()))
-			isIgnored = true;
 		if (descriptor.equals(MCJImplFor.class.descriptorString()))
 			return new MCJImplForAnnotationVisitor();
 		return null;
@@ -83,9 +72,6 @@ public class MCJClassVisitor extends ClassVisitor {
 	
 	@Override
 	public MethodVisitor visitMethod(int access, String name, String descriptor, String signature, String[] exceptions) {
-		if (isIgnored)
-			return null;
-		
 		if (exceptions != null && exceptions.length > 0) {
 			throw new MCJException("MCJ cannot compile exceptions! Remove all 'throw(s)'s and 'try's");
 		}

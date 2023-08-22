@@ -570,7 +570,11 @@ public class MCJMethodVisitor extends MethodVisitor {
 			return;
 		}
 		
-		StringBuilder path = new StringBuilder(provider.getTracker().getClassPath(owner));
+		StringBuilder path = new StringBuilder(provider.getImplForTracker().getClassPath(owner, clazz -> {
+			if (opcode != Opcodes.INVOKESTATIC)
+				return clazz;
+			return provider.getInheritanceTracker().getStaticMethodImpl(clazz, name, descriptor);
+		}));
 		if (name.equals("<init>")) {
 			path.append("/constructor");
 		} else {
@@ -680,12 +684,14 @@ public class MCJMethodVisitor extends MethodVisitor {
 				try {
 					provider.writeToActualFile(new File(provider.getCompiledFunctions(), "main.mcfunction"), """
 							function mcj:setup
-							data remove storage mcj:data running
+							data modify storage mcj:data executing set value "$(~NAMESPACE~):main"
 							function mcj:stack/push_const {value:"0"}
 							function mcj:heap/newarray
 							function mcj:stack/invokestatic {method:"$(~MAIN~)",num_args:"1",has_return:"false"}
-							data modify storage mcj:data running set value 1b
-							""".replace("$(~MAIN~)", provider.getActualFunctionPath(provider.getMethodFunctionsPath() + "/entry")));
+							data remove storage mcj:data executing
+							"""
+							.replace("$(~NAMESPACE~)", provider.getNamespace())
+							.replace("$(~MAIN~)", provider.getActualFunctionPath(provider.getMethodFunctionsPath() + "/entry")));
 				} catch (IOException e) {
 					throw new MCJException("Error while creating main.mcfunction", e);
 				}
