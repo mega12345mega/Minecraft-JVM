@@ -29,6 +29,7 @@ Use the `EventManager` to call code when something happens, like a server tick
 The `com.luneruniverse.minecraft.mcj.api` package provides useful methods and standard library replacements. Refer to the `MinecraftServer` class for useful methods, such as `exec(String)` and `getPlayers()`. Use `Array`, `CompoundMap`, and `IterableMap` for more advanced data handling.
 
 ## Example Code
+Refer to [`src/test/java/com/luneruniverse/minecraft/mcj/test`](src/test/java/com/luneruniverse/minecraft/mcj/test) for more examples
 ```
 public class Example {
 	public static void main(String[] args) {

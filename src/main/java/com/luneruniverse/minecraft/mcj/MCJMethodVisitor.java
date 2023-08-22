@@ -213,6 +213,10 @@ public class MCJMethodVisitor extends MethodVisitor {
 		this.curLabel = null;
 		this.labelListeners = new WeakHashMap<>();
 		this.parameters = new String[provider.getParamCount()];
+		
+		// native methods don't have local variables, so they need default parameter names
+		for (int i = 0; i < parameters.length; i++)
+			parameters[i] = "arg" + i;
 	}
 	
 	@Override

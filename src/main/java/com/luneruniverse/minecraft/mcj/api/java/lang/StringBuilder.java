@@ -5,14 +5,14 @@ import com.luneruniverse.minecraft.mcj.api.MCJNativeImpl;
 
 /**
  * This allows for string concatenation via str1 + str2<br>
- * <strong>Warning:</strong> This is NOT designed to be used directly, and only supports {@link #append(String)}
+ * <strong>Warning:</strong> This is NOT designed to be used directly, and only supports {@link #append(java.lang.String)}
  */
 @MCJImplFor("mcj:java/lang/StringBuilder")
 public class StringBuilder {
 	
-	private String value;
+	private java.lang.String value;
 	
-	public StringBuilder(String value) {
+	public StringBuilder(java.lang.String value) {
 		this.value = value;
 	}
 	
@@ -55,7 +55,7 @@ public class StringBuilder {
 			# _concat
 			$data modify storage mcj:data concat.a set value "$(a)$(b)"
 			"""})
-	public native java.lang.StringBuilder append(String value);
+	public native java.lang.StringBuilder append(java.lang.String value);
 	
 	@MCJNativeImpl("""
 			execute store result score cmp_a mcj_data run data get storage mcj:data localvars.v1.value
@@ -99,6 +99,6 @@ public class StringBuilder {
 			$data remove storage mcj:data heap.v$(value)
 			"""})
 	@Override
-	public native String toString();
+	public native java.lang.String toString();
 	
 }
