@@ -7,7 +7,7 @@ package com.luneruniverse.minecraft.mcj.api;
  * @param <V> The value type
  */
 @MCJImplFor("mcj:")
-public class IterableMap<K, V> implements Iterable<K> {
+public class IterableMap<K, V> {
 	
 	private final Array<K> keys;
 	private final CompoundMap<K, V> map;
@@ -85,7 +85,6 @@ public class IterableMap<K, V> implements Iterable<K> {
 		return output;
 	}
 	
-	@Override
 	public Array.ArrayIterator<K> iterator() {
 		return keys.iterator();
 	}

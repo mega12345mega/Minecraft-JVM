@@ -110,6 +110,7 @@ public class MCJPathProvider {
 	private final boolean expandedPaths;
 	private final ImplForTracker implForTracker;
 	private final InheritanceTracker inheritanceTracker;
+	private final ClinitTracker clinitTracker;
 	
 	private final File data;
 	private final File mcjData;
@@ -118,13 +119,14 @@ public class MCJPathProvider {
 	private final File compiledFunctions;
 	
 	public MCJPathProvider(File datapack, String namespace, String mainClass, boolean expandedPaths,
-			ImplForTracker implForTracker, InheritanceTracker inheritanceTracker) {
+			ImplForTracker implForTracker, InheritanceTracker inheritanceTracker, ClinitTracker clinitTracker) {
 		this.datapack = datapack;
 		this.namespace = namespace;
 		this.mainClass = mainClass;
 		this.expandedPaths = expandedPaths;
 		this.implForTracker = implForTracker;
 		this.inheritanceTracker = inheritanceTracker;
+		this.clinitTracker = clinitTracker;
 		
 		this.data = new File(datapack, "data");
 		this.mcjData = new File(data, "mcj");
@@ -139,6 +141,7 @@ public class MCJPathProvider {
 		this.expandedPaths = provider.expandedPaths;
 		this.implForTracker = provider.implForTracker;
 		this.inheritanceTracker = provider.inheritanceTracker;
+		this.clinitTracker = provider.clinitTracker;
 		
 		this.data = provider.data;
 		this.mcjData = provider.mcjData;
@@ -165,6 +168,9 @@ public class MCJPathProvider {
 	public InheritanceTracker getInheritanceTracker() {
 		return inheritanceTracker;
 	}
+	public ClinitTracker getClinitTracker() {
+		return clinitTracker;
+	}
 	
 	public File getData() {
 		return data;
@@ -183,7 +189,7 @@ public class MCJPathProvider {
 	}
 	
 	public MCJPathProvider changeNamespace(String namespace) {
-		return new MCJPathProvider(datapack, namespace, mainClass, expandedPaths, implForTracker, inheritanceTracker);
+		return new MCJPathProvider(datapack, namespace, mainClass, expandedPaths, implForTracker, inheritanceTracker, clinitTracker);
 	}
 	
 	public void writeToActualFile(File file, CharSequence contents) throws IOException {

@@ -155,15 +155,7 @@ public class MCJUtil {
 				
 				StringBuilder fullPath = new StringBuilder(classProvider.getClassFunctionsPath());
 				fullPath.append('/');
-				String name = path.substring(0, descStart);
-				if (name.equals("<init>"))
-					fullPath.append("constructor");
-				else {
-					fullPath.append("method_");
-					fullPath.append(name.toLowerCase());
-				}
-				fullPath.append('_');
-				fullPath.append(MCJUtil.md5(path.substring(0, descEnd)));
+				fullPath.append(getMethodName(path.substring(0, descStart), path.substring(descStart, descEnd)));
 				if (descEnd == path.length())
 					fullPath.append("/entry");
 				else if (path.charAt(descEnd) != '/')
@@ -184,6 +176,18 @@ public class MCJUtil {
 		}
 		
 		return fileContents;
+	}
+	
+	public static String getMethodName(String name, String descriptor) {
+		if (name.equals("<clinit>"))
+			return "clinit";
+		String md5 = md5(name + descriptor);
+		if (name.equals("<init>"))
+			name = "init_";
+		else
+			name = "method_" + name.toLowerCase() + "_";
+		name += md5;
+		return name;
 	}
 	
 }

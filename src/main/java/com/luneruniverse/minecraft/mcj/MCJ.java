@@ -4,7 +4,9 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.nio.file.Files;
+import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Map;
 import java.util.Set;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
@@ -12,6 +14,8 @@ import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
 import org.objectweb.asm.ClassReader;
+
+import com.luneruniverse.minecraft.mcj.MCJPathProvider.ClassPathProvider;
 
 /**
  * Check for macros missing the starting $ with this RegEx: /^\s*[^$\s].*\$\([^~].*$/gm<br>
@@ -121,13 +125,17 @@ public class MCJ {
 			throw new MCJException("Missing META-INF/MANIFEST.MF with Main-Class");
 		}
 		
-		MCJPathProvider provider = new MCJPathProvider(datapack, namespace, mainClass, expandedPaths, new ImplForTracker(), new InheritanceTracker());
+		MCJPathProvider provider = new MCJPathProvider(datapack, namespace, mainClass, expandedPaths,
+				new ImplForTracker(), new InheritanceTracker(), new ClinitTracker());
+		Map<String, String> entryClassNames = new HashMap<>();
 		Set<String> ignoredEntries = new HashSet<>();
 		
 		logger.accept("Initializing: Loading class information");
 		processJar((in, entry) -> {
 			try {
-				new ClassReader(in).accept(new MCJClassInitVisitor(provider, () -> ignoredEntries.add(entry.getName())), 0);
+				new ClassReader(in).accept(new MCJClassInitVisitor(provider,
+						path -> entryClassNames.put(entry.getName(), path),
+						() -> ignoredEntries.add(entry.getName())), 0);
 			} catch (Exception e) {
 				throw new MCJException("Error initializing class '" + entry.getName() + "'", e);
 			}
@@ -144,7 +152,16 @@ public class MCJ {
 				return;
 			try {
 				logger.accept(" - " + entry.getName());
-				new ClassReader(in).accept(new MCJClassVisitor(provider), 0);
+				
+				String name = entryClassNames.get(entry.getName());
+				MCJPathProvider renamedProvider = provider.changeNamespace(provider.getImplForTracker().getNamespace(name));
+				ClassPathProvider classProvider = new ClassPathProvider(renamedProvider,
+						provider.getImplForTracker().getClassFolder(provider.getDatapack(), name),
+						provider.getImplForTracker().getClassPath(name),
+						provider.getImplForTracker().getName(name),
+						renamedProvider.getMainClass().equals(name));
+				
+				new ClassReader(in).accept(new MCJClassVisitor(classProvider), 0);
 			} catch (Exception e) {
 				throw new MCJException("Error compiling class '" + entry.getName() + "'", e);
 			}

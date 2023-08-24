@@ -11,8 +11,9 @@ import com.luneruniverse.minecraft.mcj.api.Player;
 @MCJImplFor("glow_effect:")
 public class GlowEffect {
 	
+	private static final Array<String> players = new Array<>();
+	
 	public static void main(String[] args) {
-		new Array<String>(); // Creates at ptr 2 for getActivePlayers()
 		EventManager.registerEventHandler(EventManager.TICK_EVENT, "glow_effect:tick");
 		MinecraftServer.exec("""
 				tellraw @a {"text":"Glow Effect: ","color":"gold","extra":[\
@@ -23,14 +24,12 @@ public class GlowEffect {
 	
 	@MCJEntrypoint(value = "tick")
 	public static void tick() {
-		Array<String> players = getActivePlayers();
 		for (int i = 0; i < players.size(); i++) {
 			giveEffect(players.get(i));
 		}
 	}
 	@MCJEntrypoint(value = "toggle")
 	public static void toggle(boolean enabled) {
-		Array<String> players = getActivePlayers();
 		String player = Player.getNearestPlayerName();
 		boolean currentlyEnabled = players.contains(player);
 		if (currentlyEnabled != enabled) {
@@ -42,10 +41,6 @@ public class GlowEffect {
 			}
 		}
 	}
-	@MCJNativeImpl("""
-			data modify storage mcj:data stack append value {value:2}
-			""")
-	private static native Array<String> getActivePlayers();
 	@MCJNativeImpl({"""
 			function $(~player_handler) with storage mcj:data localvars.v0
 			""", """

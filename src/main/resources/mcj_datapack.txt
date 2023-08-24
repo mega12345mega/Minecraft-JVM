@@ -1,4 +1,6 @@
 .\data\mcj\dimension\data.json
+.\data\mcj\functions\classes\getstatic.mcfunction
+.\data\mcj\functions\classes\putstatic.mcfunction
 .\data\mcj\functions\heap\aload.mcfunction
 .\data\mcj\functions\heap\arraylength.mcfunction
 .\data\mcj\functions\heap\astore.mcfunction
@@ -7,6 +9,7 @@
 .\data\mcj\functions\heap\getfield.mcfunction
 .\data\mcj\functions\heap\malloc.mcfunction
 .\data\mcj\functions\heap\multianewarray.mcfunction
+.\data\mcj\functions\heap\new.mcfunction
 .\data\mcj\functions\heap\newarray.mcfunction
 .\data\mcj\functions\heap\putfield.mcfunction
 .\data\mcj\functions\heap\_2newarray.mcfunction
@@ -32,6 +35,7 @@
 .\data\mcj\functions\stack\dup_x1.mcfunction
 .\data\mcj\functions\stack\imath.mcfunction
 .\data\mcj\functions\stack\ineg.mcfunction
+.\data\mcj\functions\stack\invoke.mcfunction
 .\data\mcj\functions\stack\invokestatic.mcfunction
 .\data\mcj\functions\stack\lcmp.mcfunction
 .\data\mcj\functions\stack\lookupswitch.mcfunction

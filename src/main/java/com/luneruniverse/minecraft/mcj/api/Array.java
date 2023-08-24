@@ -1,7 +1,5 @@
 package com.luneruniverse.minecraft.mcj.api;
 
-import java.util.ListIterator;
-
 /**
  * This wraps Minecraft's array, allowing for dynamic sizes
  * @param <T> The array's component type
@@ -10,7 +8,7 @@ import java.util.ListIterator;
 public class Array<T> {
 	
 	@MCJImplFor("mcj:")
-	public static class ArrayIterator<T> implements ListIterator<T> {
+	public static class ArrayIterator<T> {
 		private final Array<T> list;
 		private int index;
 		private int lastIndex;
@@ -18,39 +16,30 @@ public class Array<T> {
 			this.list = list;
 			this.index = index;
 		}
-		@Override
 		public boolean hasNext() {
 			return index < list.size();
 		}
-		@Override
 		public T next() {
 			return list.get(lastIndex = index++);
 		}
-		@Override
 		public boolean hasPrevious() {
 			return index >= 1;
 		}
-		@Override
 		public T previous() {
 			return list.get(lastIndex = --index);
 		}
-		@Override
 		public int nextIndex() {
 			return index;
 		}
-		@Override
 		public int previousIndex() {
 			return index - 1;
 		}
-		@Override
 		public void remove() {
 			list.remove(lastIndex);
 		}
-		@Override
 		public void set(T e) {
 			list.set(lastIndex, e);
 		}
-		@Override
 		public void add(T e) {
 			list.add(index++, e);
 		}

@@ -7,7 +7,7 @@ import java.util.function.UnaryOperator;
 
 public class ImplForTracker {
 	
-	private static record FullPath(String namespace, String path, String formatted) {
+	private static record FullPath(String namespace, String name, String path) {
 		public FullPath(String namespace, String name) {
 			this(namespace, name, namespace + ":" + MCJUtil.formatClassPath(name));
 		}
@@ -28,51 +28,73 @@ public class ImplForTracker {
 	}
 	
 	/**
-	 * @param path package/Class$Nested
+	 * @param name package/Class$Nested
 	 * @param namespace namespace
-	 * @param newPath package/Class$Nested
+	 * @param newName package/Class$Nested
 	 */
-	public void track(String path, String namespace, String newPath, boolean isExpanded) {
-		FullPath fullPath = new FullPath(namespace, newPath);
-		if (pathToFullPath.put(path, fullPath) != null)
-			throw new MCJException("Duplicate implementation: " + path);
-		if (!path.equals(newPath) && pathToFullPath.put(newPath, fullPath) != null)
-			throw new MCJException("Duplicate implementation: " + newPath);
-		if (formattedToIsExpanded.put(fullPath.formatted(), isExpanded) != null)
-			throw new MCJException("Duplicate implementation: " + fullPath.formatted());
+	public void track(String name, String namespace, String newName, boolean isExpanded) {
+		FullPath fullPath = new FullPath(namespace, newName);
+		if (pathToFullPath.put(name, fullPath) != null)
+			throw new MCJException("Duplicate implementation: " + name);
+		if (!name.equals(newName) && pathToFullPath.put(newName, fullPath) != null)
+			throw new MCJException("Duplicate implementation: " + newName);
+		if (formattedToIsExpanded.put(fullPath.path(), isExpanded) != null)
+			throw new MCJException("Duplicate implementation: " + fullPath.path());
 	}
 	
 	/**
-	 * @param path package/Class$Nested
+	 * @param name package/Class$Nested
+	 * @return The namespace for the class implementation
+	 */
+	public String getNamespace(String name) {
+		FullPath output = pathToFullPath.get(name);
+		if (output == null)
+			throw new MCJException("Missing implementation for '" + name + "'");
+		return output.namespace();
+	}
+	
+	/**
+	 * @param name package/Class$Nested
+	 * @return package/Class$Nested
+	 */
+	public String getName(String name) {
+		FullPath output = pathToFullPath.get(name);
+		if (output == null)
+			throw new MCJException("Missing implementation for '" + name + "'");
+		return output.name();
+	}
+	
+	/**
+	 * @param name package/Class$Nested
 	 * @return namespace:package_package/class_class/class_nested
 	 */
-	public String getClassPath(String path) {
-		FullPath output = pathToFullPath.get(path);
+	public String getClassPath(String name) {
+		FullPath output = pathToFullPath.get(name);
 		if (output == null)
-			throw new MCJException("Missing implementation for '" + path + "'");
-		return output.formatted();
+			throw new MCJException("Missing implementation for '" + name + "'");
+		return output.path();
+	}
+	
+	/**
+	 * @param name package/Class$Nested
+	 * @param nameTransformer package/Class$Nested -> package/Class$Nested
+	 * @return namespace:package_package/class_class/class_nested
+	 */
+	public String getClassPath(String name, UnaryOperator<String> nameTransformer) {
+		FullPath output = pathToFullPath.get(name);
+		if (output == null)
+			throw new MCJException("Missing implementation for '" + name + "'");
+		return output.namespace() + ":" + MCJUtil.formatClassPath(nameTransformer.apply(output.name()));
 	}
 	
 	/**
 	 * @param datapack Datapack's root directory
-	 * @param path package/Class$Nested
+	 * @param name package/Class$Nested
 	 * @return &lt;datapack&gt;/data/namespace/functions/package_package/class_class/class_nested
 	 */
-	public File getClassFolder(File datapack, String path) {
-		String classPath = getClassPath(path);
+	public File getClassFolder(File datapack, String name) {
+		String classPath = getClassPath(name);
 		return new File(datapack, "data/" + classPath.replace(":", "/functions/"));
-	}
-	
-	/**
-	 * @param path package/Class$Nested
-	 * @param pathTransformer package/Class$Nested -> package/Class$Nested
-	 * @return namespace:package_package/class_class/class_nested
-	 */
-	public String getClassPath(String path, UnaryOperator<String> pathTransformer) {
-		FullPath output = pathToFullPath.get(path);
-		if (output == null)
-			throw new MCJException("Missing implementation for '" + path + "'");
-		return output.namespace() + ":" + MCJUtil.formatClassPath(pathTransformer.apply(output.path()));
 	}
 	
 	/**

@@ -9,8 +9,9 @@ import com.luneruniverse.minecraft.mcj.api.MinecraftServer;
 @MCJImplFor("tic_tac_toe:")
 public class TicTacToeGame {
 	
+	private static final TicTacToeGame game = new TicTacToeGame();
+	
 	public static void main(String[] args) {
-		new TicTacToeGame(); // At ptr 2
 		MinecraftServer.exec("fill -1 1 5 1 3 5 minecraft:oak_button[face=wall,facing=north]");
 		MinecraftServer.exec("fill -2 0 5 2 4 5 minecraft:bedrock replace minecraft:red_concrete");
 		MinecraftServer.exec("fill -2 0 5 2 4 5 minecraft:bedrock replace minecraft:green_concrete");
@@ -19,12 +20,8 @@ public class TicTacToeGame {
 	
 	@MCJEntrypoint("tick")
 	private static void staticTick() {
-		getGame().tick();
+		game.tick();
 	}
-	@MCJNativeImpl("""
-			data modify storage mcj:data stack append value {value:2}
-			""")
-	private static native TicTacToeGame getGame();
 	
 	
 	private boolean greenTurn;
