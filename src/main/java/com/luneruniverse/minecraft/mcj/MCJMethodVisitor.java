@@ -288,17 +288,21 @@ public class MCJMethodVisitor extends MethodVisitor {
 	@Override
 	public void visitFieldInsn(int opcode, String owner, String name, String descriptor) {
 		if (opcode == Opcodes.GETSTATIC || opcode == Opcodes.PUTSTATIC) {
-			owner = provider.getInheritanceTracker().getStaticFieldDec(provider.getImplForTracker().getName(owner), name, descriptor);
+			owner = provider.getInheritanceTracker().getStaticFieldDec(provider.getClassName(),
+					provider.getImplForTracker().getName(owner), name, descriptor);
 			String info = "{name:\"" + name + "\",class:\"" + owner + "\",clinit:\"" +
 					provider.getActualFunctionPath(provider.getImplForTracker().getClassPath(owner) + "/clinit/entry") + "\"}";
 			curLabel.println("function mcj:classes/" + (opcode == Opcodes.GETSTATIC ? "getstatic " : "putstatic ") + info);
 			return;
 		}
-		switch (opcode) { // TODO non-static field resolution doesn't handle superclasses
-			case Opcodes.GETFIELD -> curLabel.println("function mcj:heap/getfield {name:\"" + name + "\"}");
-			case Opcodes.PUTFIELD -> curLabel.println("function mcj:heap/putfield {name:\"" + name + "\"}");
-			default -> throw new MCJException("Unsupported opcode: " + opcode);
+		if (opcode == Opcodes.GETFIELD || opcode == Opcodes.PUTFIELD) {
+			owner = provider.getInheritanceTracker().getInstanceFieldDec(provider.getClassName(),
+					provider.getImplForTracker().getName(owner), name, descriptor);
+			String info = "{name:\"" + name + "\",class:\"" + owner + "\"}";
+			curLabel.println("function mcj:heap/" + (opcode == Opcodes.GETFIELD ? "getfield " : "putfield ") + info);
+			return;
 		}
+		throw new MCJException("Unsupported opcode: " + opcode);
 	}
 	
 	@Override

@@ -131,7 +131,7 @@ public class MCJUtil {
 						mainProvider.getNamespace() + ":" + classPath,
 						name,
 						mainProvider.getMainClass().equals(name));
-				path = "method" + path.substring(classEnd);
+				path = (path.indexOf('(', classEnd) != -1 ? "method" : "field") + path.substring(classEnd);
 			}
 			
 			if (path.startsWith("method~")) {
@@ -168,6 +168,56 @@ public class MCJUtil {
 				if (methodProvider == null)
 					throw new MCJException("Illegal usage of '~'; did you mean 'method~<name><descriptor>/'?");
 				replacement = mainProvider.getActualFunctionPath(methodProvider.getMethodFunctionsPath() + "/" + path.substring(1));
+			} else if (path.startsWith("field~")) {
+				if (classProvider == null)
+					throw new MCJException("Illegal usage of 'field~'; did you mean 'class~package/Class$Nested~'?");
+				path = path.substring("field~".length());
+				
+				int descStart = path.indexOf(':');
+				if (descStart != -1) {
+					path = path.substring(0, descStart);
+					System.out.println("[Warning] You do not need to provide a descriptor for 'field~', and provided descriptors will NOT get checked");
+				}
+				
+				replacement = "fields.\"" + classProvider.getClassName() + "\"." + path;
+			} else if (path.startsWith("const~")) {
+				path = path.substring("const~".length());
+				
+				int categoryEnd = path.indexOf('/');
+				if (categoryEnd == -1)
+					continue;
+				switch (path.substring(0, categoryEnd)) {
+					case "global" -> {}
+					case "class" -> {
+						if (classProvider == null)
+							throw new MCJException("Illegal usage of 'const~class/'; there is no class context");
+					}
+					case "method" -> {
+						if (methodProvider == null)
+							throw new MCJException("Illegal use of 'const~method/'; there is no method context");
+					}
+					default -> {
+						continue;
+					}
+				}
+				
+				replacement = switch (path.toLowerCase()) {
+					case "global/namespace" -> mainProvider.getNamespace();
+					case "global/main_class" -> mainProvider.getMainClass();
+					case "global/expanded_paths" -> mainProvider.isExpandedPaths() ? "true" : "false";
+					case "class/path" -> classProvider.getClassFunctionsPath();
+					case "class/name" -> classProvider.getClassName();
+					case "class/is_main" -> classProvider.isMainClass() ? "true" : "false";
+					case "method/path" -> methodProvider.getMethodFunctionsPath();
+					case "method/param_count" -> Integer.toString(methodProvider.getParamCount());
+					case "method/is_main" -> methodProvider.isMainMethod() ? "true" : "false";
+					case "method/is_static" -> methodProvider.isStaticMethod() ? "true" : "false";
+					case "method/is_native" -> methodProvider.isNativeMethod() ? "true" : "false";
+					case "method/is_void" -> methodProvider.isVoidMethod() ? "true" : "false";
+					default -> null;
+				};
+				if (replacement == null)
+					continue;
 			} else {
 				continue;
 			}

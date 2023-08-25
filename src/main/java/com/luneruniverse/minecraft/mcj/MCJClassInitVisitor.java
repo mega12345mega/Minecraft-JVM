@@ -98,7 +98,7 @@ public class MCJClassInitVisitor extends ClassVisitor {
 			return null;
 		
 		trackInheritance();
-		provider.getInheritanceTracker().trackField(newPath, name, descriptor);
+		provider.getInheritanceTracker().trackField(newPath, name, descriptor, access);
 		
 		if (MCJUtil.hasOpcode(access, Opcodes.ACC_STATIC))
 			staticFields.add(name + ":" + descriptor);

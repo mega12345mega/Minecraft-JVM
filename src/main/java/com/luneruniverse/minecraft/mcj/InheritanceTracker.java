@@ -11,7 +11,7 @@ import org.objectweb.asm.Opcodes;
 public class InheritanceTracker {
 	
 	private final ClassTree tree;
-	private final Map<String, List<String>> fields;
+	private final Map<String, Map<String, Integer>> fields;
 	private final Map<String, Map<String, Integer>> methods;
 	
 	public InheritanceTracker() {
@@ -19,7 +19,7 @@ public class InheritanceTracker {
 		fields = new HashMap<>();
 		methods = new HashMap<>();
 		
-		fields.put("java/lang/Object", new ArrayList<>());
+		fields.put("java/lang/Object", new HashMap<>());
 		methods.put("java/lang/Object", new HashMap<>());
 	}
 	
@@ -34,7 +34,7 @@ public class InheritanceTracker {
 	 */
 	public void trackClass(String clazz, String superClass, List<String> superInterfaces) {
 		tree.add(clazz, superClass, superInterfaces);
-		fields.put(clazz, new ArrayList<>());
+		fields.put(clazz, new HashMap<>());
 		methods.put(clazz, new HashMap<>());
 	}
 	
@@ -42,17 +42,19 @@ public class InheritanceTracker {
 	 * @param clazz package/Class$Nested
 	 * @param name The field name
 	 * @param descriptor The field descriptor
+	 * @param access The field access flags
 	 */
-	public void trackField(String clazz, String name, String descriptor) {
+	public void trackField(String clazz, String name, String descriptor, int access) {
 		if (!tree.contains(clazz))
 			throw new MCJException("Cannot track the field '" + name + ":" + descriptor + "' in the untracked class '" + clazz + "'");
-		fields.get(clazz).add(name + ":" + descriptor);
+		fields.get(clazz).put(name + ":" + descriptor, access);
 	}
 	
 	/**
 	 * @param clazz package/Class$Nested
 	 * @param name The method name
 	 * @param descriptor The method descriptor
+	 * @param access The method access flags
 	 */
 	public void trackMethod(String clazz, String name, String descriptor, int access) {
 		if (!tree.contains(clazz))
@@ -62,33 +64,54 @@ public class InheritanceTracker {
 	}
 	
 	/**
-	 * @param clazz package/Class$Nested
+	 * @param referrer package/Class$Nested - the class requesting the field
+	 * @param clazz package/Class$Nested - the class (or one of its subclasses) holding the field
 	 * @param name The field name
 	 * @param descriptor The field descriptor
 	 * @return The class containing the declaration for the static field in the format package/Class$Nested
 	 */
-	public String getStaticFieldDec(String clazz, String name, String descriptor) {
-		String output = getStaticFieldDecInternal(clazz, name, descriptor);
+	public String getStaticFieldDec(String referrer, String clazz, String name, String descriptor) {
+		Map.Entry<String, Integer> output = getFieldDec(referrer, clazz, name, descriptor);
 		if (output == null)
 			throw new MCJException("Missing field '" + name + ":" + descriptor + "' in class '" + clazz + "'");
-		return output;
+		if (!MCJUtil.hasOpcode(output.getValue(), Opcodes.ACC_STATIC))
+			throw new MCJException("Expected field '" + name + ":" + descriptor + "' in class '" + clazz + "' to be static");
+		return output.getKey();
 	}
-	private String getStaticFieldDecInternal(String clazz, String name, String descriptor) {
+	
+	/**
+	 * @param referrer package/Class$Nested - the class requesting the field
+	 * @param clazz package/Class$Nested - the class (or one of its subclasses) holding the field
+	 * @param name The field name
+	 * @param descriptor The field descriptor
+	 * @return The class containing the declaration for the non-static field in the format package/Class$Nested
+	 */
+	public String getInstanceFieldDec(String referrer, String clazz, String name, String descriptor) {
+		Map.Entry<String, Integer> output = getFieldDec(referrer, clazz, name, descriptor);
+		if (output == null)
+			throw new MCJException("Missing field '" + name + ":" + descriptor + "' in class '" + clazz + "'");
+		if (MCJUtil.hasOpcode(output.getValue(), Opcodes.ACC_STATIC))
+			throw new MCJException("Expected field '" + name + ":" + descriptor + "' in class '" + clazz + "' to be non-static");
+		return output.getKey();
+	}
+	
+	private Map.Entry<String, Integer> getFieldDec(String referrer, String clazz, String name, String descriptor) {
 		if (clazz.equals("java/lang/Object"))
 			return null;
-		if (fields.get(clazz).contains(name + ":" + descriptor))
-			return clazz;
+		Integer access = fields.get(clazz).get(name + ":" + descriptor);
+		if (access != null)
+			return canAccess(referrer, clazz, access) ? Map.entry(clazz, access) : null;
 		
 		List<String> superTypes = new ArrayList<>();
 		superTypes.add(tree.getSuperClass(clazz));
 		superTypes.addAll(tree.getSuperInterfaces(clazz));
-		String output = null;
+		Map.Entry<String, Integer> output = null;
 		for (String superType : superTypes) {
-			String dec = getStaticFieldDecInternal(superType, name, descriptor);
+			Map.Entry<String, Integer> dec = getFieldDec(referrer, superType, name, descriptor);
 			if (dec != null) {
 				if (output == null)
 					output = dec;
-				else if (!output.equals(dec)) // IBase(field), IBaseSub extends IBase, Clazz implements IBase, IBaseSub
+				else if (!output.getKey().equals(dec.getKey())) // IBase(field), IBaseSub extends IBase, Clazz implements IBase, IBaseSub
 					throw new MCJException("Ambiguous field '" + name + ":" + descriptor + "' in class '" + clazz + "'");
 			}
 		}
@@ -140,6 +163,24 @@ public class InheritanceTracker {
 				return true;
 		}
 		return false;
+	}
+	
+	private boolean canAccess(String referrer, String clazz, int access) {
+		if (MCJUtil.hasOpcode(access, Opcodes.ACC_PUBLIC))
+			return true;
+		if (MCJUtil.hasOpcode(access, Opcodes.ACC_PRIVATE)) {
+			int i = referrer.indexOf('$');
+			if (i != -1)
+				referrer = referrer.substring(0, i);
+			i = clazz.indexOf('$');
+			if (i != -1)
+				clazz = clazz.substring(0, i);
+			return referrer.equals(clazz); // Same outer class
+		}
+		if (referrer.substring(0, referrer.indexOf('/') + 1).equals(clazz.substring(0, clazz.indexOf('/')) + 1))
+			return true; // Same package
+		return MCJUtil.hasOpcode(access, Opcodes.ACC_PROTECTED) &&
+				(clazz.equals(referrer) || tree.isSuperClass(clazz, referrer));
 	}
 	
 }

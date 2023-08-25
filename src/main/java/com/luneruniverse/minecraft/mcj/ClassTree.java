@@ -89,4 +89,13 @@ public class ClassTree {
 		return output;
 	}
 	
+	public boolean isSuperClass(String superClass, String subClass) {
+		checkLinked();
+		while ((subClass = superClasses.get(subClass)) != null) {
+			if (superClass.equals(subClass))
+				return true;
+		}
+		return false;
+	}
+	
 }

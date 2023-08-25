@@ -1,1 +1,1 @@
-$data modify storage mcj:data stack[-1] set from storage mcj:data heap.v$(value).$(name)
+$data modify storage mcj:data stack[-1] set from storage mcj:data heap.v$(value).fields."$(class)".$(name)

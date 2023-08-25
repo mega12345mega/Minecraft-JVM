@@ -19,8 +19,9 @@ Use the `EventManager` to call code when something happens, like a server tick
   * floats and doubles (longs untested and not to Java spec)
   * binary math (like bit-shifting and xor)
   * invokedynamic (used in lambdas)
-  * inheritance (including for-each's usage of Iterable)
-    * static field & static method inheritance is now supported (it is handled at MCJ compile time)
+  * polymorphism (including for-each's usage of Iterable)
+    * non-static method inheritance is not supported
+    * other forms of inheritance are supported and are handled at MCJ compile time
   * instanceof
 * There are no exceptions and no runtime checks, meaning that there is no type safety and you can attempt to create negative length arrays (which is undefined behavior)
 * You can't use anything in the standard library, including `java.lang`; as mentioned above, use `@MCJNativeImpl` and `@MCJImplFor` to provide your own implementation for a class, allowing you to use it again (refer to `com.luneruniverse.minecraft.mcj.api.java.lang.StringBuilder` for an example

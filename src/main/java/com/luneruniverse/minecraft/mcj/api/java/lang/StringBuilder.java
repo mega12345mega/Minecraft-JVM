@@ -26,10 +26,10 @@ public class StringBuilder {
 			data modify storage mcj:data stack append from storage mcj:data localvars.v0
 			""", """
 			# pointer_handler
-			$data modify storage mcj:data concat_a set from storage mcj:data heap.v$(value).value.value
+			$data modify storage mcj:data concat_a set from storage mcj:data heap.v$(value).$(field~value).value
 			data modify storage mcj:data concat_b set from storage mcj:data localvars.v1.value
 			function $(~concat) with storage mcj:data
-			$data modify storage mcj:data heap.v$(value).value.value set from storage mcj:data concat_a
+			$data modify storage mcj:data heap.v$(value).$(field~value).value set from storage mcj:data concat_a
 			""", """
 			# concat
 			$data modify storage mcj:data concat_a set value "$(concat_a)$(concat_b)"
@@ -40,12 +40,12 @@ public class StringBuilder {
 			data modify storage mcj:data stack append from storage mcj:data localvars.v0
 			""", """
 			# pointer_handler
-			$data modify storage mcj:data concat.a set from storage mcj:data heap.v$(value).value.value
+			$data modify storage mcj:data concat.a set from storage mcj:data heap.v$(value).$(field~value).value
 			data modify storage mcj:data concat.b set value 0
 			execute store result score cmp_a mcj_data run data modify storage mcj:data concat.b set from storage mcj:data localvars.v1.value
 			execute if score cmp_a mcj_data matches 0 run data modify storage mcj:data concat.b set value "null"
 			execute in mcj:data run function $(~concat)
-			$data modify storage mcj:data heap.v$(value).value.value set from storage mcj:data concat.a
+			$data modify storage mcj:data heap.v$(value).$(field~value).value set from storage mcj:data concat.a
 			""", """
 			# concat
 			setblock 0 0 0 air
@@ -101,10 +101,10 @@ public class StringBuilder {
 		data modify storage mcj:data stack append from storage mcj:data localvars.v0
 		""", """
 		# pointer_handler
-		$data modify storage mcj:data concat.a set from storage mcj:data heap.v$(value).value.value
+		$data modify storage mcj:data concat.a set from storage mcj:data heap.v$(value).$(field~value).value
 		data modify storage mcj:data concat.b set from storage mcj:data localvars.v1.value
 		execute in mcj:data run function $(~concat)
-		$data modify storage mcj:data heap.v$(value).value.value set from storage mcj:data concat.a
+		$data modify storage mcj:data heap.v$(value).$(field~value).value set from storage mcj:data concat.a
 		""", """
 		# concat
 		setblock 0 0 0 air
@@ -119,11 +119,11 @@ public class StringBuilder {
 	private native java.lang.StringBuilder appendUnsafe(java.lang.String value);
 	
 	@MCJNativeImpl({"""
-			function mcj:localvars/push_var_to_stack {index:"0"}
-			function mcj:heap/getfield {name:"value"}
-			function $(~free) with storage mcj:data localvars.v0
+			function $(~pointer_handler) with storage mcj:data localvars.v0
 			""", """
-			# free
+			# pointer_handler
+			data modify storage mcj:data stack append value {}
+			$data modify storage mcj:data stack[-1].value set from storage mcj:data heap.v$(value).$(field~value).value
 			$data remove storage mcj:data heap.v$(value)
 			"""})
 	@Override

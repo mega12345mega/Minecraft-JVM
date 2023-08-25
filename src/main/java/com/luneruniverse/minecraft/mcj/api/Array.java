@@ -71,7 +71,7 @@ public class Array<T> {
 	
 	@MCJNativeImpl({"""
 			function mcj:localvars/push_var_to_stack {index:"0"}
-			function mcj:heap/getfield {name:"values"}
+			function mcj:heap/getfield {name:"values",class:"$(const~class/name)"}
 			function $(~pointer_handler) with storage mcj:data stack[-1]
 			""", """
 			# pointer_handler
@@ -85,7 +85,7 @@ public class Array<T> {
 	
 	@MCJNativeImpl({"""
 			function mcj:localvars/push_var_to_stack {index:"0"}
-			function mcj:heap/getfield {name:"values"}
+			function mcj:heap/getfield {name:"values",class:"$(const~class/name)"}
 			data modify storage mcj:data stack[-1].o set from storage mcj:data localvars.v1.value
 			function $(~pointer_handler) with storage mcj:data stack[-1]
 			""", """
@@ -107,7 +107,7 @@ public class Array<T> {
 	 */
 	@MCJNativeImpl({"""
 			function mcj:localvars/push_var_to_stack {index:"0"}
-			function mcj:heap/getfield {name:"values"}
+			function mcj:heap/getfield {name:"values",class:"$(const~class/name)"}
 			function mcj:heap/malloc
 			data modify storage mcj:data stack[-1].values set from storage mcj:data stack[-2].value
 			function $(~pointer_handler) with storage mcj:data stack[-1]
@@ -119,7 +119,7 @@ public class Array<T> {
 	
 	@MCJNativeImpl({"""
 			function mcj:localvars/push_var_to_stack {index:"0"}
-			function mcj:heap/getfield {name:"values"}
+			function mcj:heap/getfield {name:"values",class:"$(const~class/name)"}
 			data modify storage mcj:data stack[-1].e set from storage mcj:data localvars.v1.value
 			function $(~pointer_handler) with storage mcj:data stack[-1]
 			data modify storage mcj:data stack[-1] set value {value:1b}
@@ -131,7 +131,7 @@ public class Array<T> {
 	
 	@MCJNativeImpl({"""
 			function mcj:localvars/push_var_to_stack {index:"0"}
-			function mcj:heap/getfield {name:"values"}
+			function mcj:heap/getfield {name:"values",class:"$(const~class/name)"}
 			data modify storage mcj:data stack[-1].o set from storage mcj:data localvars.v1.value
 			function $(~pointer_handler) with storage mcj:data stack[-1]
 			""", """
@@ -190,7 +190,7 @@ public class Array<T> {
 	
 	@MCJNativeImpl({"""
 			function mcj:localvars/push_var_to_stack {index:"0"}
-			function mcj:heap/getfield {name:"values"}
+			function mcj:heap/getfield {name:"values",class:"$(const~class/name)"}
 			function $(~pointer_handler) with storage mcj:data stack[-1]
 			""", """
 			# pointer_handler
@@ -200,7 +200,7 @@ public class Array<T> {
 	
 	@MCJNativeImpl({"""
 			function mcj:localvars/push_var_to_stack {index:"0"}
-			function mcj:heap/getfield {name:"values"}
+			function mcj:heap/getfield {name:"values",class:"$(const~class/name)"}
 			data modify storage mcj:data stack[-1].index set from storage mcj:data localvars.v1.value
 			function $(~pointer_handler) with storage mcj:data stack[-1]
 			""", """
@@ -211,7 +211,7 @@ public class Array<T> {
 	
 	@MCJNativeImpl({"""
 		function mcj:localvars/push_var_to_stack {index:"0"}
-		function mcj:heap/getfield {name:"values"}
+		function mcj:heap/getfield {name:"values",class:"$(const~class/name)"}
 		data modify storage mcj:data stack[-1].index set from storage mcj:data localvars.v1.value
 		function $(~pointer_handler) with storage mcj:data stack[-1]
 		""", """
@@ -223,7 +223,7 @@ public class Array<T> {
 	
 	@MCJNativeImpl({"""
 		function mcj:localvars/push_var_to_stack {index:"0"}
-		function mcj:heap/getfield {name:"values"}
+		function mcj:heap/getfield {name:"values",class:"$(const~class/name)"}
 		data modify storage mcj:data stack[-1].index set from storage mcj:data localvars.v1.value
 		data modify storage mcj:data stack[-1].element set from storage mcj:data localvars.v2.value
 		function $(~pointer_handler) with storage mcj:data stack[-1]
@@ -235,7 +235,7 @@ public class Array<T> {
 	
 	@MCJNativeImpl({"""
 		function mcj:localvars/push_var_to_stack {index:"0"}
-		function mcj:heap/getfield {name:"values"}
+		function mcj:heap/getfield {name:"values",class:"$(const~class/name)"}
 		data modify storage mcj:data stack[-1].index set from storage mcj:data localvars.v1.value
 		function $(~pointer_handler) with storage mcj:data stack[-1]
 		""", """
@@ -275,12 +275,12 @@ public class Array<T> {
 	
 	public Array<T> subList(int fromIndex, int toIndex) {
 		Array<T> output = new Array<>();
-		copySubList(output, fromIndex, toIndex);
+		copySubList(output.values, fromIndex, toIndex);
 		return output;
 	}
 	@MCJNativeImpl({"""
 		function mcj:localvars/push_var_to_stack {index:"0"}
-		function mcj:heap/getfield {name:"values"}
+		function mcj:heap/getfield {name:"values",class:"$(const~class/name)"}
 		data modify storage mcj:data stack[-1].target set from storage mcj:data localvars.v1.value
 		execute store result score cmp_a mcj_data run data get storage mcj:data localvars.v2.value
 		execute store result score cmp_b mcj_data run data get storage mcj:data localvars.v3.value
@@ -296,6 +296,6 @@ public class Array<T> {
 		# pointer_handler
 		$data modify storage mcj:data heap.v$(target).value append from storage mcj:data heap.v$(value).value[$(cmp_a)]
 		"""})
-	private native void copySubList(Array<T> target, int fromIndex, int toIndex);
+	private native void copySubList(Object[] target, int fromIndex, int toIndex);
 	
 }
