@@ -60,7 +60,7 @@ public class Player {
 	}
 	@MCJNativeImpl({"""
 			function mcj:localvars/push_var_to_stack {index:"0"}
-			function mcj:heap/getfield {name:"name"}
+			function mcj:heap/getfield {name:"name",class:"$(const~class/name)"}
 			function $(~name_handler) with storage mcj:data stack[-1]
 			""", """
 			# name_handler

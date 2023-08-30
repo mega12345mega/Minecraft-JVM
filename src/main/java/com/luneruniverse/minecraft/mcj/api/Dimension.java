@@ -25,7 +25,7 @@ public class Dimension {
 	}
 	@MCJNativeImpl({"""
 			function mcj:localvars/push_var_to_stack {index:"0"}
-			function mcj:heap/getfield {name:"name"}
+			function mcj:heap/getfield {name:"name",class:"$(const~class/name)"}
 			data modify storage mcj:data stack[-1].names set from storage mcj:data localvars.v1.value
 			function $(~pointer_handler) with storage mcj:data stack[-1]
 			""", """

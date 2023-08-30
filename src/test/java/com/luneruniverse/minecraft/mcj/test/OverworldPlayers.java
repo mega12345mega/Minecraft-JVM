@@ -1,9 +1,11 @@
 package com.luneruniverse.minecraft.mcj.test;
 
 import com.luneruniverse.minecraft.mcj.api.Dimension;
+import com.luneruniverse.minecraft.mcj.api.MCJImplFor;
 import com.luneruniverse.minecraft.mcj.api.MinecraftServer;
 import com.luneruniverse.minecraft.mcj.api.Player;
 
+@MCJImplFor("overworld_players:")
 public class OverworldPlayers {
 	
 	public static void main(String[] args) {

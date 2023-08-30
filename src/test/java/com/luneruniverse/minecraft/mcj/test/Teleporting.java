@@ -2,9 +2,11 @@ package com.luneruniverse.minecraft.mcj.test;
 
 import com.luneruniverse.minecraft.mcj.api.Dimension;
 import com.luneruniverse.minecraft.mcj.api.MCJEntrypoint;
+import com.luneruniverse.minecraft.mcj.api.MCJImplFor;
 import com.luneruniverse.minecraft.mcj.api.MCJNativeImpl;
 import com.luneruniverse.minecraft.mcj.api.Player;
 
+@MCJImplFor("teleporting:")
 public class Teleporting {
 	
 	public static void main(String[] args) {

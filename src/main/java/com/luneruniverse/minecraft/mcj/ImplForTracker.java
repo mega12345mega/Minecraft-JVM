@@ -6,53 +6,81 @@ import java.util.Map;
 
 public class ImplForTracker {
 	
+	private static record FullPath(String namespace, String name, String path) {
+		public FullPath(String namespace, String name) {
+			this(namespace, name, namespace + ":" + MCJUtil.formatClassPath(name));
+		}
+	}
+	
 	/**
-	 * package/Class$Nested -> namespace:package_package/class_class/class_nested
+	 * package/Class$Nested -> FullPath
 	 */
-	private final Map<String, String> pathToFullPath;
+	private final Map<String, FullPath> pathToFullPath;
 	/**
 	 * namespace:package_package/class_class/class_nested -> true/false
 	 */
-	private final Map<String, Boolean> fullPathToIsExpanded;
+	private final Map<String, Boolean> formattedToIsExpanded;
 	
 	public ImplForTracker() {
 		pathToFullPath = new HashMap<>();
-		fullPathToIsExpanded = new HashMap<>();
+		formattedToIsExpanded = new HashMap<>();
 	}
 	
 	/**
-	 * @param path package/Class$Nested
+	 * @param name package/Class$Nested
 	 * @param namespace namespace
-	 * @param newPath package/Class$Nested
+	 * @param newName package/Class$Nested
 	 */
-	public void track(String path, String namespace, String newPath, boolean isExpanded) {
-		String fullPath = namespace + ":" + MCJUtil.formatClassPath(newPath);
-		if (pathToFullPath.put(path, fullPath) != null)
-			throw new MCJException("Duplicate implementation: " + path);
-		if (!path.equals(newPath) && pathToFullPath.put(newPath, fullPath) != null)
-			throw new MCJException("Duplicate implementation: " + newPath);
-		if (fullPathToIsExpanded.put(fullPath, isExpanded) != null)
-			throw new MCJException("Duplicate implementation: " + fullPath);
+	public void track(String name, String namespace, String newName, boolean isExpanded) {
+		FullPath fullPath = new FullPath(namespace, newName);
+		if (pathToFullPath.put(name, fullPath) != null)
+			throw new MCJException("Duplicate implementation: " + name);
+		if (!name.equals(newName) && pathToFullPath.put(newName, fullPath) != null)
+			throw new MCJException("Duplicate implementation: " + newName);
+		if (formattedToIsExpanded.put(fullPath.path(), isExpanded) != null)
+			throw new MCJException("Duplicate implementation: " + fullPath.path());
 	}
 	
 	/**
-	 * @param path package/Class$Nested
+	 * @param name package/Class$Nested
+	 * @return The namespace for the class implementation
+	 */
+	public String getNamespace(String name) {
+		FullPath output = pathToFullPath.get(name);
+		if (output == null)
+			throw new MCJException("Missing implementation for '" + name + "'");
+		return output.namespace();
+	}
+	
+	/**
+	 * @param name package/Class$Nested
+	 * @return package/Class$Nested
+	 */
+	public String getName(String name) {
+		FullPath output = pathToFullPath.get(name);
+		if (output == null)
+			throw new MCJException("Missing implementation for '" + name + "'");
+		return output.name();
+	}
+	
+	/**
+	 * @param name package/Class$Nested
 	 * @return namespace:package_package/class_class/class_nested
 	 */
-	public String getClassPath(String path) {
-		String output = pathToFullPath.get(path);
+	public String getClassPath(String name) {
+		FullPath output = pathToFullPath.get(name);
 		if (output == null)
-			throw new MCJException("Missing implementation for '" + path + "'");
-		return output;
+			throw new MCJException("Missing implementation for '" + name + "'");
+		return output.path();
 	}
 	
 	/**
 	 * @param datapack Datapack's root directory
-	 * @param path package/Class$Nested
+	 * @param name package/Class$Nested
 	 * @return &lt;datapack&gt;/data/namespace/functions/package_package/class_class/class_nested
 	 */
-	public File getClassFolder(File datapack, String path) {
-		String classPath = getClassPath(path);
+	public File getClassFolder(File datapack, String name) {
+		String classPath = getClassPath(name);
 		return new File(datapack, "data/" + classPath.replace(":", "/functions/"));
 	}
 	
@@ -61,7 +89,7 @@ public class ImplForTracker {
 	 * @return If the class is using expanded paths
 	 */
 	public boolean isExpanded(String classPath) {
-		return fullPathToIsExpanded.get(classPath);
+		return formattedToIsExpanded.get(classPath);
 	}
 	
 }

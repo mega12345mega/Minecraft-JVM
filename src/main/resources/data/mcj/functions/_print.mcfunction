@@ -1,1 +1,1 @@
-$say $(print_target): $(print_value)
+$say $(target): $(value)

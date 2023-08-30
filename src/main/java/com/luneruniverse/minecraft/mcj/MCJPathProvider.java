@@ -108,7 +108,9 @@ public class MCJPathProvider {
 	private final String namespace;
 	private final String mainClass; // package/Class$Nested
 	private final boolean expandedPaths;
-	private final ImplForTracker tracker;
+	private final ImplForTracker implForTracker;
+	private final InheritanceTracker inheritanceTracker;
+	private final ClinitTracker clinitTracker;
 	
 	private final File data;
 	private final File mcjData;
@@ -116,12 +118,15 @@ public class MCJPathProvider {
 	private final File compiledData;
 	private final File compiledFunctions;
 	
-	public MCJPathProvider(File datapack, String namespace, String mainClass, boolean expandedPaths, ImplForTracker tracker) {
+	public MCJPathProvider(File datapack, String namespace, String mainClass, boolean expandedPaths,
+			ImplForTracker implForTracker, InheritanceTracker inheritanceTracker, ClinitTracker clinitTracker) {
 		this.datapack = datapack;
 		this.namespace = namespace;
 		this.mainClass = mainClass;
 		this.expandedPaths = expandedPaths;
-		this.tracker = tracker;
+		this.implForTracker = implForTracker;
+		this.inheritanceTracker = inheritanceTracker;
+		this.clinitTracker = clinitTracker;
 		
 		this.data = new File(datapack, "data");
 		this.mcjData = new File(data, "mcj");
@@ -134,7 +139,9 @@ public class MCJPathProvider {
 		this.namespace = provider.namespace;
 		this.mainClass = provider.mainClass;
 		this.expandedPaths = provider.expandedPaths;
-		this.tracker = provider.tracker;
+		this.implForTracker = provider.implForTracker;
+		this.inheritanceTracker = provider.inheritanceTracker;
+		this.clinitTracker = provider.clinitTracker;
 		
 		this.data = provider.data;
 		this.mcjData = provider.mcjData;
@@ -155,8 +162,14 @@ public class MCJPathProvider {
 	public boolean isExpandedPaths() {
 		return expandedPaths;
 	}
-	public ImplForTracker getTracker() {
-		return tracker;
+	public ImplForTracker getImplForTracker() {
+		return implForTracker;
+	}
+	public InheritanceTracker getInheritanceTracker() {
+		return inheritanceTracker;
+	}
+	public ClinitTracker getClinitTracker() {
+		return clinitTracker;
 	}
 	
 	public File getData() {
@@ -176,7 +189,7 @@ public class MCJPathProvider {
 	}
 	
 	public MCJPathProvider changeNamespace(String namespace) {
-		return new MCJPathProvider(datapack, namespace, mainClass, expandedPaths, tracker);
+		return new MCJPathProvider(datapack, namespace, mainClass, expandedPaths, implForTracker, inheritanceTracker, clinitTracker);
 	}
 	
 	public void writeToActualFile(File file, CharSequence contents) throws IOException {
@@ -187,7 +200,7 @@ public class MCJPathProvider {
 		Path datapackRelPath = datapack.toPath().relativize(file.toPath());
 		
 		Path path;
-		if (tracker.isExpanded(datapackRelPath.getName(1).toString() + ":" +
+		if (implForTracker.isExpanded(datapackRelPath.getName(1).toString() + ":" +
 				datapackRelPath.subpath(3, datapackRelPath.getNameCount() - 2).toString()
 				.replace(datapackRelPath.getFileSystem().getSeparator(), "/"))) {
 			path = file.toPath();
@@ -206,7 +219,7 @@ public class MCJPathProvider {
 		Files.writeString(path, contents);
 	}
 	public String getActualFunctionPath(String path) {
-		if (tracker.isExpanded(path.substring(0, path.lastIndexOf('/', path.lastIndexOf('/') - 1))))
+		if (implForTracker.isExpanded(path.substring(0, path.lastIndexOf('/', path.lastIndexOf('/') - 1))))
 			return path;
 		int i = path.indexOf(':') + 1;
 		return path.substring(0, i) + MCJUtil.md5(path.substring(i));

@@ -44,6 +44,16 @@ public class MCJMethodVisitor extends MethodVisitor {
 			#execute if data storage mcj:data intstack[-1].$(comparison) run return run function mcj:intstack/pop
 			function mcj:intstack/pop""";
 	
+	private static final String IFNULL_TEMPLATE = """
+			data modify storage mcj:data null set value 0
+			execute store success score cmp_a mcj_data run data modify storage mcj:data null set from storage mcj:data stack[-1].value
+			data modify storage mcj:data intstack append value {}
+			execute $(condition) score cmp_a mcj_data matches 0 run data modify storage mcj:data intstack[-1].matches set value 1b
+			execute if data storage mcj:data intstack[-1].matches run function $(target)
+			execute if data storage mcj:data intstack[-1].matches run return run data remove storage mcj:data intstack[-1]
+			#execute if data storage mcj:data intstack[-1].matches run return run function mcj:intstack/pop
+			function mcj:intstack/pop""";
+	
 	private class MCJLabel {
 		private class MCJLabelPosition {
 			private int index;
@@ -189,6 +199,7 @@ public class MCJMethodVisitor extends MethodVisitor {
 	}
 	
 	private final MethodPathProvider provider;
+	private final String header;
 	private boolean isNativeFound;
 	private String execute;
 	private String entrypoint;
@@ -200,9 +211,10 @@ public class MCJMethodVisitor extends MethodVisitor {
 	private final WeakHashMap<Label, List<Consumer<MCJLabel>>> labelListeners;
 	private final String[] parameters;
 	
-	public MCJMethodVisitor(MethodPathProvider provider) {
+	public MCJMethodVisitor(MethodPathProvider provider, String header) {
 		super(Opcodes.ASM9);
 		this.provider = provider;
+		this.header = header;
 		this.isNativeFound = false;
 		this.execute = null;
 		this.entrypoint = null;
@@ -275,13 +287,22 @@ public class MCJMethodVisitor extends MethodVisitor {
 	
 	@Override
 	public void visitFieldInsn(int opcode, String owner, String name, String descriptor) {
-		switch (opcode) { // TODO GETSTATIC, PUTSTATIC, field resolution doesn't handle superclasses
-//			case Opcodes.GETSTATIC -> ;
-//			case Opcodes.PUTSTATIC -> ;
-			case Opcodes.GETFIELD -> curLabel.println("function mcj:heap/getfield {name:\"" + name + "\"}");
-			case Opcodes.PUTFIELD -> curLabel.println("function mcj:heap/putfield {name:\"" + name + "\"}");
-			default -> throw new MCJException("Unsupported opcode: " + opcode);
+		if (opcode == Opcodes.GETSTATIC || opcode == Opcodes.PUTSTATIC) {
+			owner = provider.getInheritanceTracker().getStaticFieldDec(provider.getClassName(),
+					provider.getImplForTracker().getName(owner), name, descriptor);
+			String info = "{name:\"" + name + "\",class:\"" + owner + "\",clinit:\"" +
+					provider.getActualFunctionPath(provider.getImplForTracker().getClassPath(owner) + "/clinit/entry") + "\"}";
+			curLabel.println("function mcj:classes/" + (opcode == Opcodes.GETSTATIC ? "getstatic " : "putstatic ") + info);
+			return;
 		}
+		if (opcode == Opcodes.GETFIELD || opcode == Opcodes.PUTFIELD) {
+			owner = provider.getInheritanceTracker().getInstanceFieldDec(provider.getClassName(),
+					provider.getImplForTracker().getName(owner), name, descriptor);
+			String info = "{name:\"" + name + "\",class:\"" + owner + "\"}";
+			curLabel.println("function mcj:heap/" + (opcode == Opcodes.GETFIELD ? "getfield " : "putfield ") + info);
+			return;
+		}
+		throw new MCJException("Unsupported opcode: " + opcode);
 	}
 	
 	@Override
@@ -485,10 +506,10 @@ public class MCJMethodVisitor extends MethodVisitor {
 						.replace("$(target)", targetLabel.getFunctionPath()));
 				case Opcodes.GOTO -> pos.printGoto("function " + targetLabel.getFunctionPath());
 				case Opcodes.JSR -> throw new MCJException("Unsupported deprecated opcode: " + opcode);
-				case Opcodes.IFNULL -> pos.println(IFCMP0_TEMPLATE.replace("$(condition)", "if")
-						.replace("$(range)", "0").replace("$(target)", targetLabel.getFunctionPath()));
-				case Opcodes.IFNONNULL -> pos.println(IFCMP0_TEMPLATE.replace("$(condition)", "unless")
-						.replace("$(range)", "0").replace("$(target)", targetLabel.getFunctionPath()));
+				case Opcodes.IFNULL -> pos.println(IFNULL_TEMPLATE.replace("$(condition)", "if")
+						.replace("$(target)", targetLabel.getFunctionPath()));
+				case Opcodes.IFNONNULL -> pos.println(IFNULL_TEMPLATE.replace("$(condition)", "unless")
+						.replace("$(target)", targetLabel.getFunctionPath()));
 				default -> throw new MCJException("Unsupported opcode: " + opcode);
 			}
 		});
@@ -570,26 +591,38 @@ public class MCJMethodVisitor extends MethodVisitor {
 			return;
 		}
 		
-		StringBuilder path = new StringBuilder(provider.getTracker().getClassPath(owner));
-		if (name.equals("<init>")) {
-			path.append("/constructor");
-		} else {
-			path.append("/method_");
-			path.append(name);
-		}
-		path.append('_');
-		path.append(MCJUtil.md5(name + descriptor));
-		path.append("/entry");
-		String pathStr = provider.getActualFunctionPath(path.toString().toLowerCase());
+		owner = provider.getImplForTracker().getName(owner);
 		
 		int numArgs = MCJUtil.getParamCount(descriptor);
 		boolean hasReturn = descriptor.charAt(descriptor.length() - 1) != 'V';
 		
-		switch (opcode) { // TODO unordered
-			case Opcodes.INVOKESTATIC -> curLabel.println("function mcj:stack/invokestatic {method:\"" + pathStr + "\",num_args:\"" + numArgs + "\",has_return:\"" + hasReturn + "\"}");
-			case Opcodes.INVOKEVIRTUAL, Opcodes.INVOKESPECIAL, Opcodes.INVOKEINTERFACE -> {
-				// TODO method resolution doesn't handle superclasses/interfaces
-				curLabel.println("function mcj:stack/invokestatic {method:\"" + pathStr + "\",num_args:\"" + (numArgs + 1) + "\",has_return:\"" + hasReturn + "\"}");
+		switch (opcode) {
+			case Opcodes.INVOKEVIRTUAL, Opcodes.INVOKEINTERFACE ->  {
+				InheritanceTracker.MethodCall call = provider.getInheritanceTracker().getInstanceMethodImpl(
+						provider.getClassName(), owner, name, descriptor);
+				if (call.overriden()) {
+					curLabel.println("function mcj:stack/invokevirtual {method:\"" + name + descriptor + "\",num_args:\"" +
+							(numArgs + 1) + "\",has_return:\"" + hasReturn + "\",vtable:\"" + call.classOrPackage() + "\"}");
+				} else {
+					curLabel.println("function mcj:stack/invoke {method:\"" +
+							provider.getActualFunctionPath(provider.getImplForTracker().getClassPath(call.classOrPackage()) +
+									"/" + MCJUtil.getMethodName(name, descriptor) + "/entry") +
+							"\",num_args:\"" + (numArgs + 1) + "\",has_return:\"" + hasReturn + "\"}");
+				}
+			}
+			case Opcodes.INVOKESPECIAL -> {
+				curLabel.println("function mcj:stack/invoke {method:\"" +
+						provider.getActualFunctionPath(provider.getImplForTracker().getClassPath(
+								provider.getInheritanceTracker().getSpecialMethodImpl(owner, name, descriptor)) +
+								"/" + MCJUtil.getMethodName(name, descriptor) + "/entry") + "\",num_args:\"" +
+								(numArgs + 1) + "\",has_return:\"" + hasReturn + "\"}");
+			}
+			case Opcodes.INVOKESTATIC -> {
+				String classPath = provider.getImplForTracker().getClassPath(
+						provider.getInheritanceTracker().getStaticMethodImpl(owner, name, descriptor));
+				curLabel.println("function mcj:stack/invokestatic {method:\"" +
+						provider.getActualFunctionPath(classPath + "/" + MCJUtil.getMethodName(name, descriptor) + "/entry") +
+						"\",num_args:\"" + numArgs + "\",has_return:\"" + hasReturn + "\",clinit:\"" + classPath + "/clinit/entry\"}");
 			}
 			default -> throw new MCJException("Unsupported opcode: " + opcode);
 		}
@@ -645,11 +678,17 @@ public class MCJMethodVisitor extends MethodVisitor {
 	
 	@Override
 	public void visitTypeInsn(int opcode, String type) {
-		switch (opcode) { // TODO INSTANCEOF
-			case Opcodes.NEW -> curLabel.println("function mcj:heap/malloc");
+		switch (opcode) {
+			case Opcodes.NEW -> curLabel.println("function mcj:heap/new {class:\"" +
+					provider.getImplForTracker().getName(type) + "\",clinit:\"" +
+					provider.getActualFunctionPath(provider.getImplForTracker().getClassPath(type) + "/clinit/entry") + "\"}");
 			case Opcodes.ANEWARRAY -> curLabel.println("function mcj:heap/newarray");
 			case Opcodes.CHECKCAST -> {}
-//			case Opcodes.INSTANCEOF -> ;
+			case Opcodes.INSTANCEOF -> {
+				if (type.startsWith("[")) // TODO INSTANCEOF ARRAY, clinit type first?
+					throw new MCJException("The opcode 'instanceof' doesn't support arrays!");
+				curLabel.println("function mcj:heap/instanceof {type:\"" + provider.getImplForTracker().getName(type) + "\"}");
+			}
 			default -> throw new MCJException("Unsupported opcode: " + opcode);
 		}
 	}
@@ -680,12 +719,15 @@ public class MCJMethodVisitor extends MethodVisitor {
 				try {
 					provider.writeToActualFile(new File(provider.getCompiledFunctions(), "main.mcfunction"), """
 							function mcj:setup
-							data remove storage mcj:data running
+							data modify storage mcj:data executing set value "$(~NAMESPACE~):main"
 							function mcj:stack/push_const {value:"0"}
 							function mcj:heap/newarray
-							function mcj:stack/invokestatic {method:"$(~MAIN~)",num_args:"1",has_return:"false"}
-							data modify storage mcj:data running set value 1b
-							""".replace("$(~MAIN~)", provider.getActualFunctionPath(provider.getMethodFunctionsPath() + "/entry")));
+							function mcj:stack/invokestatic {method:"$(~MAIN~)",num_args:"1",has_return:"false",clinit:"$(~CLINIT~)"}
+							data remove storage mcj:data executing
+							"""
+							.replace("$(~NAMESPACE~)", provider.getNamespace())
+							.replace("$(~MAIN~)", provider.getActualFunctionPath(provider.getMethodFunctionsPath() + "/entry"))
+							.replace("$(~CLINIT~)", provider.getActualFunctionPath(provider.getClassFunctionsPath() + "/clinit/entry")));
 				} catch (IOException e) {
 					throw new MCJException("Error while creating main.mcfunction", e);
 				}
@@ -706,7 +748,7 @@ public class MCJMethodVisitor extends MethodVisitor {
 				provider.writeToActualFile(new File(provider.getCompiledFunctions(), entrypoint), """
 						$(~SETUP~)
 						data modify storage mcj:data executing set value "$(~ENTRYPOINT_PATH~)"
-						$(~ARGS~)function mcj:stack/invokestatic {method:"$(~MAIN~)",num_args:"$(~NUM_ARGS~)",has_return:"$(~HAS_RETURN~)"}
+						$(~ARGS~)function mcj:stack/invokestatic {method:"$(~MAIN~)",num_args:"$(~NUM_ARGS~)",has_return:"$(~HAS_RETURN~)",clinit:"$(~CLINIT~)"}
 						$(~DISABLE_EXEC~)
 						$(~GC~)"""
 						.replace("$(~SETUP~)", entrypointSetup ? "function mcj:setup" :
@@ -719,6 +761,7 @@ public class MCJMethodVisitor extends MethodVisitor {
 						.replace("$(~MAIN~)", provider.getActualFunctionPath(provider.getMethodFunctionsPath() + "/entry"))
 						.replace("$(~NUM_ARGS~)", "" + parameters.length)
 						.replace("$(~HAS_RETURN~)", provider.isVoidMethod() ? "false" : "true")
+						.replace("$(~CLINIT~)", provider.getActualFunctionPath(provider.getClassFunctionsPath() + "/clinit/entry"))
 						.replace("$(~DISABLE_EXEC~)", entrypointSetup ? "data remove storage mcj:data executing" :
 							"execute unless data storage mcj:data intstack[-1].executing run data remove storage mcj:data executing\n" +
 							"function mcj:intstack/pop")
@@ -762,6 +805,8 @@ public class MCJMethodVisitor extends MethodVisitor {
 				entryValue = "execute " + execute + " run " + entryValue;
 			else if (labels.get(0).canCombine)
 				entryValue = labels.remove(0).getContents();
+			if (header != null)
+				entryValue = header + entryValue;
 			
 			provider.writeToFile(new File(provider.getMethodFunctions(), "entry.mcfunction"), entryValue);
 			
