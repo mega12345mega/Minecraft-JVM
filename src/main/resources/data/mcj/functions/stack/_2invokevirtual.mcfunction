@@ -1,0 +1,1 @@
+$data modify storage mcj:data invokevirtual.method set from storage mcj:data classes."$(class)".vtables."$(vtable)"."$(method)"

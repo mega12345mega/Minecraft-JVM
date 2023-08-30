@@ -2,6 +2,7 @@ package com.luneruniverse.minecraft.mcj;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.Map;
 
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.MethodVisitor;
@@ -26,6 +27,29 @@ public class MCJClassVisitor extends ClassVisitor {
 				execute if data storage mcj:data classes."$(~NAME~)".initialized run return 0
 				data modify storage mcj:data classes."$(~NAME~)".initialized set value 1b
 				""".replace("$(~NAME~)", provider.getClassName()));
+		if (!MCJUtil.hasOpcode(access, Opcodes.ACC_INTERFACE)) {
+			clinitHeader.append("data modify storage mcj:data classes.\"");
+			clinitHeader.append(provider.getClassName());
+			clinitHeader.append("\".vtables set value ");
+			clinitHeader.append(provider.getInheritanceTracker().getVTablesNBT(provider.getClassName(), provider));
+			clinitHeader.append("\ndata modify storage mcj:data classes.\"");
+			clinitHeader.append(provider.getClassName());
+			clinitHeader.append("\".instanceof set value ");
+			clinitHeader.append(provider.getInheritanceTracker().getInstanceOfNBT(provider.getClassName()));
+			clinitHeader.append('\n');
+		}
+		for (Map.Entry<String, Object> field : provider.getClinitTracker().getStaticFields(provider.getClassName()).entrySet()) {
+			String value = "0";
+			if (field.getValue() != null) {
+				if (field.getValue() instanceof String str)
+					value = '"' + str.replace("\\", "\\\\").replace("\"", "\\\"") + '"';
+				else
+					value = field.getValue().toString();
+			}
+			clinitHeader.append("data modify storage mcj:data classes.\"" + provider.getClassName() + "\".fields." +
+					field.getKey().substring(0, field.getKey().indexOf(':')) + ".value set value " + value);
+			clinitHeader.append('\n');
+		}
 		if (!superName.equals("java/lang/Object")) {
 			clinitHeader.append("function ");
 			clinitHeader.append(provider.getActualFunctionPath(
@@ -42,11 +66,6 @@ public class MCJClassVisitor extends ClassVisitor {
 				clinitHeader.append('\n');
 			}
 		}
-		for (String field : provider.getClinitTracker().getUninitStaticFields(provider.getClassName())) {
-			clinitHeader.append("data modify storage mcj:data classes.\"" + provider.getClassName() + "\".fields." +
-					field.substring(0, field.indexOf(':')) + ".value set value 0");
-			clinitHeader.append('\n');
-		}
 		this.clinitHeader = clinitHeader.toString();
 	}
 	
@@ -55,6 +74,9 @@ public class MCJClassVisitor extends ClassVisitor {
 		if (exceptions != null && exceptions.length > 0) {
 			throw new MCJException("MCJ cannot compile exceptions! Remove all 'throw(s)'s and 'try's");
 		}
+		
+		if (MCJUtil.hasOpcode(access, Opcodes.ACC_ABSTRACT))
+			return null;
 		
 		if (MCJUtil.hasOpcode(access, Opcodes.ACC_SYNCHRONIZED)) {
 			// Ignore; it is not currently possible to start another thread anyway

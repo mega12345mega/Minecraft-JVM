@@ -2,9 +2,9 @@ package com.luneruniverse.minecraft.mcj;
 
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.HashSet;
+import java.util.HashMap;
 import java.util.List;
-import java.util.Set;
+import java.util.Map;
 import java.util.function.Consumer;
 
 import org.objectweb.asm.AnnotationVisitor;
@@ -22,11 +22,11 @@ public class MCJClassInitVisitor extends ClassVisitor {
 	private final MCJPathProvider provider;
 	private final Consumer<String> onName;
 	private final Runnable onIgnore;
-	private final List<String> staticFields;
-	private final Set<String> setStaticFields;
+	private final Map<String, Object> staticFields;
 	private String name;
 	private String superClass;
 	private List<String> superInterfaces;
+	private Boolean isInterface;
 	private boolean inheritanceTracked;
 	private boolean ignored;
 	private String namespace;
@@ -38,8 +38,7 @@ public class MCJClassInitVisitor extends ClassVisitor {
 		this.provider = provider;
 		this.onName = onName;
 		this.onIgnore = onIgnore;
-		this.staticFields = new ArrayList<>();
-		this.setStaticFields = new HashSet<>();
+		this.staticFields = new HashMap<>();
 	}
 	
 	@Override
@@ -47,6 +46,7 @@ public class MCJClassInitVisitor extends ClassVisitor {
 		this.name = name;
 		this.superClass = superName;
 		this.superInterfaces = (interfaces == null ? new ArrayList<>() : Arrays.asList(interfaces));
+		this.isInterface = MCJUtil.hasOpcode(access, Opcodes.ACC_INTERFACE);
 		this.namespace = provider.getNamespace();
 		this.newPath = name;
 		this.expandedPaths = provider.isExpandedPaths();
@@ -101,7 +101,7 @@ public class MCJClassInitVisitor extends ClassVisitor {
 		provider.getInheritanceTracker().trackField(newPath, name, descriptor, access);
 		
 		if (MCJUtil.hasOpcode(access, Opcodes.ACC_STATIC))
-			staticFields.add(name + ":" + descriptor);
+			staticFields.put(name + ":" + descriptor, value);
 		
 		return null;
 	}
@@ -112,10 +112,8 @@ public class MCJClassInitVisitor extends ClassVisitor {
 			return null;
 		
 		trackInheritance();
-		provider.getInheritanceTracker().trackMethod(newPath, name, descriptor, access);
-		
-		if (name.equals("<clinit>"))
-			return new MCJClinitVisitor(setStaticFields::add);
+		if (!name.equals("<clinit>") && !name.equals("<init>"))
+			provider.getInheritanceTracker().trackMethod(newPath, name, descriptor, access);
 		
 		return null;
 	}
@@ -127,15 +125,13 @@ public class MCJClassInitVisitor extends ClassVisitor {
 		
 		trackInheritance();
 		provider.getImplForTracker().track(name, namespace, newPath, expandedPaths);
-		
-		staticFields.removeAll(setStaticFields);
-		provider.getClinitTracker().trackUninitStaticFields(newPath, staticFields);
+		provider.getClinitTracker().trackStaticFields(newPath, staticFields);
 	}
 	
 	private void trackInheritance() {
 		if (inheritanceTracked)
 			return;
-		provider.getInheritanceTracker().trackClass(newPath, superClass, superInterfaces);
+		provider.getInheritanceTracker().trackClass(newPath, superClass, superInterfaces, isInterface);
 		inheritanceTracked = true;
 	}
 	

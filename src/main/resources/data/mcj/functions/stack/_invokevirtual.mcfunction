@@ -1,0 +1,1 @@
+$data modify storage mcj:data invokevirtual.class set from storage mcj:data heap.v$(value).type

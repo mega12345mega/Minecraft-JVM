@@ -591,22 +591,38 @@ public class MCJMethodVisitor extends MethodVisitor {
 			return;
 		}
 		
-		String classPath = provider.getImplForTracker().getClassPath(owner, clazz -> {
-			if (opcode != Opcodes.INVOKESTATIC)
-				return clazz;
-			return provider.getInheritanceTracker().getStaticMethodImpl(clazz, name, descriptor);
-		});
-		String funcPath = provider.getActualFunctionPath(classPath + "/" + MCJUtil.getMethodName(name, descriptor) + "/entry");
+		owner = provider.getImplForTracker().getName(owner);
 		
 		int numArgs = MCJUtil.getParamCount(descriptor);
 		boolean hasReturn = descriptor.charAt(descriptor.length() - 1) != 'V';
 		
-		switch (opcode) { // TODO unordered
-			case Opcodes.INVOKESTATIC -> curLabel.println("function mcj:stack/invokestatic {method:\"" + funcPath +
-					"\",num_args:\"" + numArgs + "\",has_return:\"" + hasReturn + "\",clinit:\"" + classPath + "/clinit/entry\"}");
-			case Opcodes.INVOKEVIRTUAL, Opcodes.INVOKESPECIAL, Opcodes.INVOKEINTERFACE -> {
-				// TODO method resolution doesn't handle superclasses/interfaces
-				curLabel.println("function mcj:stack/invoke {method:\"" + funcPath + "\",num_args:\"" + (numArgs + 1) + "\",has_return:\"" + hasReturn + "\"}");
+		switch (opcode) {
+			case Opcodes.INVOKEVIRTUAL, Opcodes.INVOKEINTERFACE ->  {
+				InheritanceTracker.MethodCall call = provider.getInheritanceTracker().getInstanceMethodImpl(
+						provider.getClassName(), owner, name, descriptor);
+				if (call.overriden()) {
+					curLabel.println("function mcj:stack/invokevirtual {method:\"" + name + descriptor + "\",num_args:\"" +
+							(numArgs + 1) + "\",has_return:\"" + hasReturn + "\",vtable:\"" + call.classOrPackage() + "\"}");
+				} else {
+					curLabel.println("function mcj:stack/invoke {method:\"" +
+							provider.getActualFunctionPath(provider.getImplForTracker().getClassPath(call.classOrPackage()) +
+									"/" + MCJUtil.getMethodName(name, descriptor) + "/entry") +
+							"\",num_args:\"" + (numArgs + 1) + "\",has_return:\"" + hasReturn + "\"}");
+				}
+			}
+			case Opcodes.INVOKESPECIAL -> {
+				curLabel.println("function mcj:stack/invoke {method:\"" +
+						provider.getActualFunctionPath(provider.getImplForTracker().getClassPath(
+								provider.getInheritanceTracker().getSpecialMethodImpl(owner, name, descriptor)) +
+								"/" + MCJUtil.getMethodName(name, descriptor) + "/entry") + "\",num_args:\"" +
+								(numArgs + 1) + "\",has_return:\"" + hasReturn + "\"}");
+			}
+			case Opcodes.INVOKESTATIC -> {
+				String classPath = provider.getImplForTracker().getClassPath(
+						provider.getInheritanceTracker().getStaticMethodImpl(owner, name, descriptor));
+				curLabel.println("function mcj:stack/invokestatic {method:\"" +
+						provider.getActualFunctionPath(classPath + "/" + MCJUtil.getMethodName(name, descriptor) + "/entry") +
+						"\",num_args:\"" + numArgs + "\",has_return:\"" + hasReturn + "\",clinit:\"" + classPath + "/clinit/entry\"}");
 			}
 			default -> throw new MCJException("Unsupported opcode: " + opcode);
 		}
@@ -662,12 +678,17 @@ public class MCJMethodVisitor extends MethodVisitor {
 	
 	@Override
 	public void visitTypeInsn(int opcode, String type) {
-		switch (opcode) { // TODO INSTANCEOF
-			case Opcodes.NEW -> curLabel.println("function mcj:heap/new {clinit:\"" +
+		switch (opcode) {
+			case Opcodes.NEW -> curLabel.println("function mcj:heap/new {class:\"" +
+					provider.getImplForTracker().getName(type) + "\",clinit:\"" +
 					provider.getActualFunctionPath(provider.getImplForTracker().getClassPath(type) + "/clinit/entry") + "\"}");
 			case Opcodes.ANEWARRAY -> curLabel.println("function mcj:heap/newarray");
 			case Opcodes.CHECKCAST -> {}
-//			case Opcodes.INSTANCEOF -> ;
+			case Opcodes.INSTANCEOF -> {
+				if (type.startsWith("[")) // TODO INSTANCEOF ARRAY, clinit type first?
+					throw new MCJException("The opcode 'instanceof' doesn't support arrays!");
+				curLabel.println("function mcj:heap/instanceof {type:\"" + provider.getImplForTracker().getName(type) + "\"}");
+			}
 			default -> throw new MCJException("Unsupported opcode: " + opcode);
 		}
 	}

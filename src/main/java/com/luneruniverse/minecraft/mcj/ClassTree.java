@@ -6,19 +6,28 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 public class ClassTree {
 	
+	/**
+	 * package/Class$Nested -> isInterface
+	 */
+	private final Map<String, Boolean> classes;
 	private final Map<String, String> superClasses;
 	private final Map<String, List<String>> superInterfaces;
 	private final Map<String, List<String>> subTypes;
 	private boolean linked;
 	
 	public ClassTree() {
+		classes = new HashMap<>();
 		superClasses = new HashMap<>();
 		superInterfaces = new HashMap<>();
 		subTypes = new HashMap<>();
+		
+		classes.put("java/lang/Object", false);
 		superClasses.put("java/lang/Object", null);
+		superInterfaces.put("java/lang/Object", new ArrayList<>());
 	}
 	
 	public void link() {
@@ -35,10 +44,11 @@ public class ClassTree {
 			throw new MCJException("Cannot get information from an unlinked ClassTree!");
 	}
 	
-	public void add(String clazz, String superClass, List<String> superInterfaces) {
+	public void add(String clazz, String superClass, List<String> superInterfaces, boolean isInterface) {
 		linked = false;
-		if (superClasses.put(clazz, superClass) != null)
+		if (classes.put(clazz, isInterface) != null)
 			throw new MCJException("Duplicate class: " + clazz);
+		this.superClasses.put(clazz, superClass);
 		this.superInterfaces.put(clazz, superInterfaces);
 		subTypes.computeIfAbsent(superClass, key -> new ArrayList<>()).add(clazz);
 		for (String superInterface : superInterfaces)
@@ -46,7 +56,18 @@ public class ClassTree {
 	}
 	
 	public boolean contains(String clazz) {
-		return superClasses.containsKey(clazz);
+		return classes.containsKey(clazz);
+	}
+	public Set<String> getTypes() {
+		return new HashSet<>(superClasses.keySet());
+	}
+	public Set<String> getClasses() {
+		return classes.entrySet().stream().filter(entry -> entry.getValue() == false)
+				.map(Map.Entry::getKey).collect(Collectors.toSet());
+	}
+	public Set<String> getInterfaces() {
+		return classes.entrySet().stream().filter(entry -> entry.getValue() == true)
+				.map(Map.Entry::getKey).collect(Collectors.toSet());
 	}
 	
 	public String getSuperClass(String clazz) {
@@ -72,6 +93,9 @@ public class ClassTree {
 			output.add(superInterface);
 			output.addAll(getSuperInterfacesRecursive(superInterface));
 		}
+		String superClass = superClasses.get(clazz);
+		if (superClass != null)
+			output.addAll(getSuperInterfacesRecursive(superClass));
 		return output;
 	}
 	
@@ -96,6 +120,9 @@ public class ClassTree {
 				return true;
 		}
 		return false;
+	}
+	public boolean isSuperInterface(String superInterface, String subInterface) {
+		return getSuperInterfacesRecursive(subInterface).contains(superInterface);
 	}
 	
 }

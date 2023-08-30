@@ -3,7 +3,6 @@ package com.luneruniverse.minecraft.mcj;
 import java.io.File;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.function.UnaryOperator;
 
 public class ImplForTracker {
 	
@@ -73,18 +72,6 @@ public class ImplForTracker {
 		if (output == null)
 			throw new MCJException("Missing implementation for '" + name + "'");
 		return output.path();
-	}
-	
-	/**
-	 * @param name package/Class$Nested
-	 * @param nameTransformer package/Class$Nested -> package/Class$Nested
-	 * @return namespace:package_package/class_class/class_nested
-	 */
-	public String getClassPath(String name, UnaryOperator<String> nameTransformer) {
-		FullPath output = pathToFullPath.get(name);
-		if (output == null)
-			throw new MCJException("Missing implementation for '" + name + "'");
-		return output.namespace() + ":" + MCJUtil.formatClassPath(nameTransformer.apply(output.name()));
 	}
 	
 	/**

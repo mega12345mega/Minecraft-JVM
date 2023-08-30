@@ -19,15 +19,16 @@ Use the `EventManager` to call code when something happens, like a server tick
   * floats and doubles (longs untested and not to Java spec)
   * binary math (like bit-shifting and xor)
   * invokedynamic (used in lambdas)
-  * polymorphism (including for-each's usage of Iterable)
-    * non-static method inheritance is not supported
-    * other forms of inheritance are supported and are handled at MCJ compile time
-  * instanceof
+  * using arrays as `Iterable`
+  * instanceof for arrays
 * There are no exceptions and no runtime checks, meaning that there is no type safety and you can attempt to create negative length arrays (which is undefined behavior)
 * You can't use anything in the standard library, including `java.lang`; as mentioned above, use `@MCJNativeImpl` and `@MCJImplFor` to provide your own implementation for a class, allowing you to use it again (refer to `com.luneruniverse.minecraft.mcj.api.java.lang.StringBuilder` for an example
 
 ## API
 The `com.luneruniverse.minecraft.mcj.api` package provides useful methods and standard library replacements. Refer to the `MinecraftServer` class for useful methods, such as `exec(String)` and `getPlayers()`. Use `Array`, `CompoundMap`, and `IterableMap` for more advanced data handling.
+
+## Compile Time Resolution
+When working with field and method inheritance, everything is resolved at MCJ compile time, with the exception of polymorphic methods. The polymorphic methods also refer to vtables, which are generated at MCJ compile time. This means that you cannot "merge" two parts of a datapack that were compiled separately. If you would like to have a separate piece of code (eg. a library), make sure to use and distribute the Java bytecode (`.class` and `.jar`) files, NOT the `.mcfunction` files.
 
 ## Example Code
 Refer to [`src/test/java/com/luneruniverse/minecraft/mcj/test`](src/test/java/com/luneruniverse/minecraft/mcj/test) for more examples

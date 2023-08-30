@@ -1,33 +1,32 @@
 package com.luneruniverse.minecraft.mcj;
 
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 
 public class ClinitTracker {
 	
-	private final Map<String, List<String>> uninitStaticFields;
+	private final Map<String, Map<String, Object>> staticFields;
 	
 	public ClinitTracker() {
-		uninitStaticFields = new HashMap<>();
+		staticFields = new HashMap<>();
 	}
 	
 	/**
 	 * @param clazz package/Class$Nested
-	 * @param uninitStaticFields [name:descriptor
+	 * @param staticFields name:descriptor -> initial value
 	 */
-	public void trackUninitStaticFields(String clazz, List<String> uninitStaticFields) {
-		this.uninitStaticFields.put(clazz, uninitStaticFields);
+	public void trackStaticFields(String clazz, Map<String, Object> staticFields) {
+		this.staticFields.put(clazz, staticFields);
 	}
 	
 	/**
 	 * @param clazz package/Class$Nested
-	 * @return [name:descriptor
+	 * @return name:descriptor -> initial value
 	 */
-	public List<String> getUninitStaticFields(String clazz) {
-		List<String> output = uninitStaticFields.get(clazz);
+	public Map<String, Object> getStaticFields(String clazz) {
+		Map<String, Object> output = staticFields.get(clazz);
 		if (output == null)
-			throw new MCJException("Missing uninitialized static fields for '" + clazz + "'");
+			throw new MCJException("Missing static fields for '" + clazz + "'");
 		return output;
 	}
 	
